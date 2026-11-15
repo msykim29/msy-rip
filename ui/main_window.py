@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import threading
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QAbstractItemView, QButtonGroup, QFileDialog, QHBoxLayout, QHeaderView,
@@ -26,6 +26,7 @@ from core.pipeline import rip_isle
 from core.settings import Ayarlar
 from core.tif import bilgi_oku
 from ui.settings_dialog import AyarlarPenceresi
+import updater
 
 
 class RipThread(QThread):
@@ -68,6 +69,8 @@ class AnaEkran(QMainWindow):
         self._kur_toolbar()
         self._kur_govde()
         self._durum(f"Ayarlar yüklendi — çıkış: {self.ayar.cikis_klasoru or '(seçilmedi)'}")
+        # 15/11: açılışta GitHub güncelleme kontrolü (arka planda, arayüzü bekletmez)
+        QTimer.singleShot(1200, self._guncelleme_kontrol)
 
     # ---------------- arayüz kurulumu ----------------
     def _kur_toolbar(self):
@@ -269,6 +272,36 @@ class AnaEkran(QMainWindow):
                 f"• {os.path.basename(h[0])}: {h[2]}" for h in hatali[:5])
         QMessageBox.information(self, "MSY Rip — tamamlandı", msg)
         self._durum("Tamamlandı")
+
+    # ---------------- güncelleme ----------------
+    def _guncelleme_kontrol(self):
+        """Arka planda GitHub'dan sürüm kontrolü."""
+        try:
+            bilgi = updater.guncelleme_kontrol()
+        except Exception:
+            return
+        if not bilgi:
+            return
+        cevap = QMessageBox.question(
+            self, "MSY Rip — Güncelleme",
+            f"Yeni sürüm mevcut: v{bilgi.get('version')}\n\n"
+            f"{bilgi.get('notes', '')}\n\n"
+            "Şimdi indirilip kurulsun mu?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes)
+        if cevap != QMessageBox.StandardButton.Yes:
+            return
+        self._durum("Güncelleme indiriliyor…")
+        ok = updater.indir_ve_kur(bilgi.get('url', ''))
+        if ok:
+            QMessageBox.information(
+                self, "MSY Rip",
+                "Güncelleme indirildi ve başlatıldı.\n"
+                "Kurulum bitince programı yeniden aç.")
+            self.close()
+        else:
+            QMessageBox.warning(self, "MSY Rip",
+                                "Güncelleme indirilemedi. Daha sonra tekrar deneyin.")
 
     def _durum(self, metin):
         self.durum_lbl.setText(str(metin)[:90])

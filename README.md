@@ -28,3 +28,63 @@ python main.py
 
 ## Lisans
 Açık kaynak — MIT
+
+
+## Kurulum (kullanıcı için)
+
+1. `MSYRip-Setup.exe` indir
+2. Çalıştır → **C:\Program Files\MSYRip** kurulur
+3. Masaüstünde **MSY Rip** kısayolu oluşur
+4. Ayarlar (⚙) → ICC profili seç, çıkış klasörü seç, Kaydet
+5. TIF dosyalarını pencereye sürükle → 0/1/2 daraltma seç → **spot + rip**
+
+## Derleme (geliştirici için)
+
+```bash
+# 1) Bağımlılıklar
+pip install -r requirements.txt pyinstaller
+
+# 2) Windows'ta .exe üret
+pyinstaller MSYRip.spec --noconfirm
+# → dist/MSYRip/MSYRip.exe
+
+# 3) Kurulum paketi (Inno Setup gerekli)
+iscc installer.iss
+# → Output/MSYRip-Setup.exe
+```
+
+## Otomatik güncelleme
+
+Uygulama açılışta `version.json` dosyasını GitHub'dan okur.
+Yeni sürüm varsa sorar, indirir, kurar.
+
+**Yeni sürüm yayınlama:**
+```bash
+# 1) version.json'da sürümü artır
+# 2) Tag at
+git tag v1.0.1
+git push --tags
+# 3) GitHub Actions derleyip Release'e yükler
+```
+
+## Proje yapısı
+```
+msy_rip/
+├── main.py                 # giriş noktası
+├── updater.py              # GitHub güncelleme
+├── core/
+│   ├── prt.py              # PRT oku/yaz (SAi formatı)
+│   ├── tif.py              # TIF okuyucu
+│   ├── spot.py             # spot katmanı + choke
+│   ├── halftone.py         # AM screen
+│   ├── icc.py              # ICC dönüşümü
+│   ├── settings.py         # ayarlar (JSON)
+│   └── pipeline.py         # TIF → PRT hattı
+├── ui/
+│   ├── main_window.py      # ana ekran
+│   └── settings_dialog.py  # ayarlar penceresi
+├── installer.iss           # Inno Setup
+├── MSYRip.spec             # PyInstaller
+├── version.json            # sürüm bilgisi
+└── .github/workflows/build.yml
+```

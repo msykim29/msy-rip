@@ -1,0 +1,44 @@
+name: Build MSY Rip
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bağımlılıklar
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: PyInstaller ile derle
+        run: pyinstaller MSYRip.spec --noconfirm
+
+      - name: Inno Setup kur
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Setup paketi oluştur
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Release'e yükle
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Output/MSYRip-Setup.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
