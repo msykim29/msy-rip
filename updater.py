@@ -15,7 +15,7 @@ import urllib.request
 SURUM = "1.0.0"
 
 # MSY: repo adı GitHub'a yüklerken buraya yazılacak
-REPO = "msy/msy-rip"
+REPO = "msykim29/msy-rip"
 VERSION_URL = f"https://raw.githubusercontent.com/{REPO}/main/version.json"
 
 
