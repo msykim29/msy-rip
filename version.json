@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.2",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "İlk sürüm — TIF sürükle-bırak, spot daraltma 0/1/2 px, PRT çıktısı"
+  "notes": "TIFF okunamama hatasına açıklayıcı mesaj (Photoshop layered TIFF teşhisi)"
 }
