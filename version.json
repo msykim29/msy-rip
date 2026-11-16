@@ -1,5 +1,5 @@
 {
-  "version": "1.0.12",
+  "version": "1.0.13",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Halftone motoru degisti: acili AM ekran yerine PM19 benzeri SOFM stokastik kume noktalar (grid-hizali, ~13px kume, dikey ~5px). Acili ekran 90dpi yatay zeminde kosegen siralar olusturup onizlemede deseni kayik gosteriyordu."
+  "notes": "KOK DUELTME: (1) CMYK TIFler artik ham kanallardan okunuyor — Once Pillow C,M,Y kanallarini RGB sanip bozuk donusum yapiyordu (K %81 tasiyordu -> renkler kayboluyordu). (2) Varsayilan kanal duzeni K siz: [C,M,Y,White,White,C,M,Y] — PM19 ile ayni; K beyaz kafaya yazilinca renkler saciyordu. (3) Beyaz = alpha maskesi (5 ve 6 kanalli TIFler desteklendi)."
 }

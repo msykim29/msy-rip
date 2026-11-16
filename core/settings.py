@@ -27,7 +27,9 @@ def ayar_yolu() -> str:
 @dataclass
 class Ayarlar:
     # 1) Kanal sıralaması — her makinede farklı
-    kanal_sirasi: list = field(default_factory=lambda: ['C', 'M', 'Y', 'K', 'Spot_1'])
+    # 20/11 PM19 analizi: PRT'de K kanali YOK — duzen [C,M,Y,White,White,C,M,Y].
+    # K yazarsan beyaz kafaya siyah verisi gidiyor -> renkler sacmaya basliyor.
+    kanal_sirasi: list = field(default_factory=lambda: ['C', 'M', 'Y', 'Spot_1'])
 
     # 2) Renk yüzdeleri
     renk_yuzde: dict = field(default_factory=lambda: {

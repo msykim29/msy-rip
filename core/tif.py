@@ -170,3 +170,31 @@ def _tifffile_dpi(yol: str):
     except Exception:
         pass
     return 300.0
+
+
+def ham_oku(yol):
+    """Ham TIFF kanallarini tifffile ile oku.
+
+    Donus: (arr (h, w, n) uint8, dpi) — CMYK/spot TIF'lerde:
+      5 kanal: [C, M, Y, K, alpha]
+      6 kanal: [C, M, Y, K, alpha, spot/beyaz]
+    Pillow 4 kanaldan fazlasini RGBA'ya ezer (C,M,Y'yi RGB sanip K ve
+    alpha'yi kaybediyordu). Bu fonksiyon ham kanallari korur.
+    CMYK/spot olmayan dosyalarda None doner (cagiran klasik yola duser).
+    """
+    try:
+        import tifffile
+    except ImportError:
+        return None
+    try:
+        arr = tifffile.imread(yol)
+    except Exception:
+        return None
+    if arr.ndim != 3 or arr.shape[2] < 5 or arr.dtype != np.uint8:
+        return None
+    dx = _tifffile_dpi(yol) if hasattr(_tifffile_dpi, '__call__') else 300.0
+    try:
+        dx = float(dx)
+    except Exception:
+        dx = 300.0
+    return arr, (dx, dx)

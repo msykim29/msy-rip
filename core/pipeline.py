@@ -46,9 +46,29 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         raise RipHatasi(f"Dosya yok: {tif_yolu}")
 
     log(f"okunuyor: {os.path.basename(tif_yolu)}")
-    rgba, (dpi_x, _dpi_y) = piksel_oku(tif_yolu)
-    h, w = rgba.shape[:2]
-    log(f"  boyut: {w}x{h} px @ {dpi_x:.0f} dpi")
+
+    # 20/11 v7 (PM19 dogrulama): 5/6 kanalli CMYK TIF'lerde Pillow C,M,Y'yi
+    # RGB sanip bozuk 'RGB->CMYK' donusumu yapiyordu (K=%81 tasmasi ->
+    # renkler gidiyordu). CMYK TIF'ler artik HAM kanallardan dogrudan okunur:
+    #   [C,M,Y,K,alpha(,spot)] — ICC donusumu ATLANIR.
+    _ham = None
+    try:
+        import tifffile as _tf
+        _a = _tf.imread(tif_yolu)
+        if _a.ndim == 3 and _a.shape[2] >= 4 and _a.dtype == np.uint8:
+            _ham = _a
+            log(f"  CMYK TIF: ham {_a.shape[2]} kanal dogrudan okundu (ICC donusumu atlandi)")
+    except Exception:
+        _ham = None
+
+    if _ham is not None:
+        h, w = _ham.shape[:2]
+        log(f"  boyut: {w}x{h} px (ham CMYK)")
+        rgba = None
+    else:
+        rgba, (dpi_x, _dpi_y) = piksel_oku(tif_yolu)
+        h, w = rgba.shape[:2]
+        log(f"  boyut: {w}x{h} px @ {dpi_x:.0f} dpi")
 
     # 16/11/2026 MSY (PM19 KARSILASTIRMASI):
     # PM19 TIF'i ~90 dpi'ye olcekler (TIF 300dpi iken genislik /3.33)
@@ -62,9 +82,15 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     _bant_px = int(ayar.prt_bant_px or 0)
     if _bant_px > 0 and w != _bant_px:
         from PIL import Image as _PILImage
-        _img = _PILImage.fromarray(rgba)
-        _img = _img.resize((_bant_px, h), _PILImage.LANCZOS)   # dikey KORUNUR
-        rgba = np.array(_img, dtype=np.uint8)
+        if _ham is not None:
+            _ham = np.stack([
+                np.array(_PILImage.fromarray(_ham[:, :, i])
+                         .resize((_bant_px, h), _PILImage.LANCZOS))
+                for i in range(_ham.shape[2])], axis=2)
+        else:
+            _img = _PILImage.fromarray(rgba)
+            _img = _img.resize((_bant_px, h), _PILImage.LANCZOS)   # dikey KORUNUR
+            rgba = np.array(_img, dtype=np.uint8)
         log(f"  olcek: {w}x{h} -> {_bant_px}x{h} (bant genisligi, PM19 uyumlu)")
         w = _bant_px
 
@@ -78,24 +104,35 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # PM19 spot %24.08 = TIF alpha dolu %26.35 - daraltma)
     _tif_alpha = None
     _tif_spot = None
-    try:
-        import tifffile as _tf
-        with _tf.TiffFile(tif_yolu) as _t:
-            _pg = _t.pages[0]
-            _nc = _pg.shape[-1] if len(_pg.shape) == 3 else 0
-        if _nc >= 6:
-            _arr = _tf.imread(tif_yolu)
-            _tif_alpha = _arr[..., 4]       # gorunurluk maskesi
-            _tif_spot = _arr[..., 5]         # Spot_1 katmani
-            log(f"  6+ kanalli TIF: alpha=k4, spot=k5 ayri okundu")
-    except Exception:
-        pass
+    if _ham is not None:
+        if _ham.shape[2] >= 5:
+            _tif_alpha = _ham[:, :, 4]       # gorunurluk maskesi (design alani)
+            log("  alpha: ham kanal 4 (beyaz alani)")
+        if _ham.shape[2] >= 6:
+            _tif_spot = _ham[:, :, 5]
+    else:
+        try:
+            import tifffile as _tf
+            with _tf.TiffFile(tif_yolu) as _t:
+                _pg = _t.pages[0]
+                _nc = _pg.shape[-1] if len(_pg.shape) == 3 else 0
+            if _nc >= 6:
+                _arr = _tf.imread(tif_yolu)
+                _tif_alpha = _arr[..., 4]
+                _tif_spot = _arr[..., 5]
+                log(f"  6+ kanalli TIF: alpha=k4, spot=k5 ayri okundu")
+        except Exception:
+            pass
 
-    rgb = rgba[:, :, :3]
-    cmyk = icc_mod.rgb_to_cmyk(
-        rgb, ayar.icc_yol or None,
-        intent=ayar.icc_intent, bpc=bool(ayar.icc_bpc))
-    log(f"  CMYK dönüşümü tamam (profil: {os.path.basename(ayar.icc_yol) if ayar.icc_yol else 'basit'})")
+    if _ham is not None:
+        cmyk = _ham[:, :, :4].copy()
+        log("  CMYK: TIF kanallarindan dogrudan (K dahil)")
+    else:
+        rgb = rgba[:, :, :3]
+        cmyk = icc_mod.rgb_to_cmyk(
+            rgb, ayar.icc_yol or None,
+            intent=ayar.icc_intent, bpc=bool(ayar.icc_bpc))
+        log(f"  CMYK dönüşümü tamam (profil: {os.path.basename(ayar.icc_yol) if ayar.icc_yol else 'basit'})")
 
     # 2) Renk yüzdeleri
     yzd = ayar.renk_yuzde
@@ -119,6 +156,14 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         spot = (_am.astype(np.uint16) * 65535)
         oran = spot_mod.kapsama_orani(_am)
         log(f"  spot: {ayar.spot_adi} (ALPHA tabanli - PM19 uyumlu, daraltma {daraltma}px, kapsama %{oran*100:.1f})")
+    elif _ham is not None:
+        # CMYK TIF ama alpha yok -> beyaz = murekkepli alan birlesimi
+        _m = ((_ham[:, :, :4] > 0).any(axis=2))
+        if daraltma > 0:
+            _m = spot_mod.erode(_m, int(daraltma))
+        spot = (_m.astype(np.uint16) * 65535)
+        oran = spot_mod.kapsama_orani(_m)
+        log(f"  spot: {ayar.spot_adi} (murekkep maskesi, daraltma {daraltma}px, kapsama %{oran*100:.1f})")
     else:
         spot = spot_mod.spot_kanali(rgba, daraltma=int(daraltma))
         oran = spot_mod.kapsama_orani(spot > 0)
