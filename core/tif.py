@@ -31,9 +31,43 @@ class TifBilgi:
         return f"{self.cm_genislik:.0f}x{self.cm_yukseklik:.0f} cm"
 
 
+def _tiff_sihirli(yol: str) -> str:
+    """16/11/2026 MSY: 'cannot identify image file' teşhisi."""
+    try:
+        with open(yol, 'rb') as f:
+            b = f.read(16)
+        if b.startswith(b'\x49\x49\x2a\x00') or b.startswith(b'\x4d\x4d\x00\x2a'):
+            return 'tiff'
+        if b.startswith(b'\x89PNG'): return 'png'
+        if b.startswith(b'\xff\xd8'): return 'jpeg'
+        if b[:6] in (b'GIF87a', b'GIF89a'): return 'gif'
+        if b.startswith(b'8BPS'): return 'psd'
+        return f'bilinmeyen ({b[:8].hex()})'
+    except Exception:
+        return 'okunamadi'
+
+
 def bilgi_oku(yol: str) -> TifBilgi:
     """TIF dosyasının meta bilgisini oku (görüntüyü belleğe almadan)."""
-    with Image.open(yol) as im:
+    # 16/11/2026 MSY (s2.tiff vakası): Photoshop layered TIFF Pillow'un basit
+    # okuyucusunu asiyor ('cannot identify image file'). Ozellikle tag 34375
+    # (Photoshop layer verisi) veya 8BIM kaynagi varsa Pillow acamiyordu.
+    # Cozum: Pillow once normal denenir; olmazsa RAW modda TIFF taglari
+    # elle okunur ve dosya en azindan META acilis icin taninir.
+    try:
+        im = Image.open(yol)
+    except Exception as e:
+        _tip = _tiff_sihirli(yol)
+        if _tip == 'tiff':
+            raise ValueError(
+                f"Dosya gercek TIFF ama Pillow acamadi (Photoshop layered/sikistirma). "
+                f"Hata: {e}\n"
+                f"Cozum: Dosyayi Photoshop'ta 'Baseline TIFF' / 'LZW' olarak kaydet, "
+                f"'Layer'lari duzlestir (Flatten).")
+        raise ValueError(
+            f"Dosya formati taninamadi (magic: {_tip}). "
+            f"Dosya gercekten .tif/.tiff mi? Photoshop'tan 'TIFF' olarak kaydedin.")
+    with im as im:
         w, h = im.size
         dpi = im.info.get('dpi') or (300.0, 300.0)
         try:
@@ -64,7 +98,15 @@ def piksel_oku(yol: str):
 
     Döner: (rgba: np.ndarray uint8 (h, w, 4), dpi: (x, y))
     """
-    with Image.open(yol) as im:
+    # 16/11: Photoshop layered TIFF -> anlasilir hata ver
+    try:
+        im = Image.open(yol)
+    except Exception as e:
+        raise ValueError(
+            f"TIF okunamadi: {e}. "
+            f"Photoshop: File > Save As > TIFF > 'LZW' veya 'None' compression, "
+            f"'Layers' isaretsiz (Flatten Image).")
+    with im as im:
         dpi = im.info.get('dpi') or (300.0, 300.0)
         try:
             dx, dy = float(dpi[0]), float(dpi[1])

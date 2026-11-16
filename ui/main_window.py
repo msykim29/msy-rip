@@ -178,7 +178,8 @@ class AnaEkran(QMainWindow):
             try:
                 bilgi = bilgi_oku(yol)
             except Exception as e:
-                QMessageBox.warning(self, "Hata", f"{os.path.basename(yol)}: {e}")
+                QMessageBox.warning(self, "TIF okunamadi",
+                    f"Dosya: {os.path.basename(yol)}\n\n{e}")
                 continue
             self._satirlar.append((yol, bilgi))
             self._satir_ciz(len(self._satirlar) - 1, yol, bilgi)
