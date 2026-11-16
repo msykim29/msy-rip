@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.icc import profil_bilgi
+from core.machines import MAKINELER, uygula
 from core.settings import Ayarlar
 
 KANAL_SECENEK = ['C', 'M', 'Y', 'K', 'White', 'Spot_1', 'Spot_2', 'Spot_3', 'Spot_4']
@@ -38,6 +39,26 @@ class AyarlarPenceresi(QDialog):
     # ------------------------------------------------------------------
     def _kur(self):
         v = QVBoxLayout(self)
+
+        # 0) Makine seçimi (PM19 'Printer Setup' benzeri)
+        g0 = QGroupBox("Makine profili")
+        h0 = QHBoxLayout(g0)
+        self.makine_combo = QComboBox()
+        self.makine_combo.addItems(list(MAKINELER.keys()))
+        _cur = self.ayar.makine or "JLHS600EPS3200 (DTF 6PASS)"
+        if _cur in MAKINELER:
+            self.makine_combo.setCurrentText(_cur)
+        h0.addWidget(self.makine_combo, 1)
+        self.makine_lbl = QLabel("")
+        self.makine_lbl.setStyleSheet("color:#666; font-size:11px;")
+        h0.addWidget(self.makine_lbl)
+        b_makine = QPushButton("Uygula")
+        b_makine.setStyleSheet("background:#2563eb;color:white;padding:6px 16px;border-radius:5px;")
+        b_makine.clicked.connect(self._makine_uygula)
+        h0.addWidget(b_makine)
+        self.makine_combo.currentTextChanged.connect(self._makine_bilgi)
+        v.addWidget(g0)
+        self._makine_bilgi(self.makine_combo.currentText())
 
         # 1) Kanal sıralaması
         g1 = QGroupBox("1) Kanal sıralaması")
@@ -127,6 +148,24 @@ class AyarlarPenceresi(QDialog):
         v.addWidget(bb)
 
     # ------------------------------------------------------------------
+    def _makine_bilgi(self, ad):
+        m = MAKINELER.get(ad)
+        if m:
+            self.makine_lbl.setText(
+                f"{m['aciklama']} — {m['pass_sayisi']} pass, bant {m['prt_bant_px']}px")
+
+    def _makine_uygula(self):
+        ad = self.makine_combo.currentText()
+        if uygula(self.ayar, ad):
+            # UI alanlarini da guncelle
+            self.kanal_liste.clear()
+            self.kanal_liste.addItems(self.ayar.kanal_sirasi)
+            for k, sb in self.yuzde.items():
+                sb.setValue(float(self.ayar.renk_yuzde.get(k, 100)))
+            self.spot_edit.setText(self.ayar.spot_adi)
+            self.pass_spin.setValue(int(self.ayar.pass_sayisi))
+            self.hucre_spin.setValue(int(self.ayar.halftone_hucre))
+
     def _kanal_degistir(self):
         i = self.kanal_liste.currentRow()
         if i < 0:
@@ -164,6 +203,7 @@ class AyarlarPenceresi(QDialog):
             self.cikis_edit.setText(d)
 
     def _kaydet(self):
+        self.ayar.makine = self.makine_combo.currentText()
         kanallar = [self.kanal_liste.item(i).text()
                     for i in range(self.kanal_liste.count())]
         if not kanallar:

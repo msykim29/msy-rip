@@ -153,10 +153,13 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     while len(_8ch) < 8:
         _8ch.append(np.zeros_like(kanallar[0]) if kanallar else
                     np.zeros((h, w), dtype=np.uint16))
-    # mirror duzen: [c0, c1, c2, c3, c3, c2, c1, c0]
-    _mir = [_8ch[0], _8ch[1], _8ch[2], _8ch[3],
-            _8ch[3], _8ch[2], _8ch[1], _8ch[0]]
-    kanallar = _mir
+    if getattr(ayar, 'mirror', True):
+        # mirror duzen: [c0, c1, c2, c3, c3, c2, c1, c0]
+        _mir = [_8ch[0], _8ch[1], _8ch[2], _8ch[3],
+                _8ch[3], _8ch[2], _8ch[1], _8ch[0]]
+        kanallar = _mir
+    else:
+        kanallar = _8ch[:8]
 
     # 5) Dikey ölçekleme — 16/11 v4 (PM19 birebir DOĞRULANDI)
     # PM19: TIF 308 satır @300dpi -> PRT 1848 satır (dikey 6x = 1800dpi).

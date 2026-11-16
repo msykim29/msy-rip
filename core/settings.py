@@ -52,6 +52,10 @@ class Ayarlar:
     halftone_hucre: int = 8      # nokta hücresi piksel (küçük = yüksek LPI)
     halftone_seviye: int = 4     # 2 veya 4
 
+    # 16/11/2026: makine profili
+    makine: str = ''             # core/machines.py MAKINELER anahtarı
+    mirror: bool = True          # 8 kanal mirror düzeni
+
     # Ek: hedef genişlik (PRT başlığı)
     prt_genislik: int = 720
     prt_yukseklik: int = 1800

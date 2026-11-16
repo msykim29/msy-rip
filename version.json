@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Baski duzeltmesi: dikey 6x resize (np.repeat hatasi resmi 6x uzatip siyah bastiyordu). PM19 1800dpi dikey olcekleme."
+  "notes": "Makine profili secimi eklendi: JLHS600EPS3200 4/6/8 PASS + Ozel. Ayarlardan makine sec, tum PRT parametreleri otomatik dolar."
 }
