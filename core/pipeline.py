@@ -50,7 +50,46 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     h, w = rgba.shape[:2]
     log(f"  boyut: {w}x{h} px @ {dpi_x:.0f} dpi")
 
+    # 16/11/2026 MSY (PM19 KARSILASTIRMASI):
+    # PM19 TIF'i ~90 dpi'ye olcekler (TIF 300dpi iken genislik /3.33)
+    # Orn: 6335 px @300dpi -> 1904 px. Hedef: hedef_dpi parametresi.
+    # 16/11 v2 (PM19 dogrulandi): olcekleme SADECE YATAY.
+    # PM19 dikeyde TIF yuksekligini korur (satir = TIF_yukseklik * pass).
+    # Orn: TIF 308 satir -> PRT 1848 satir (308*6). Genislik 6335 -> 1904.
+    _hedef_dpi = float(ayar.prt_dpi or 0)
+    if _hedef_dpi > 0 and dpi_x > 0 and dpi_x > _hedef_dpi:
+        _oran = _hedef_dpi / dpi_x
+        _nw = max(2, int(round(w * _oran)))
+        from PIL import Image as _PILImage
+        _img = _PILImage.fromarray(rgba)
+        _img = _img.resize((_nw, h), _PILImage.LANCZOS)   # dikey KORUNUR
+        rgba = np.array(_img, dtype=np.uint8)
+        log(f"  olcek: {w}x{h} -> {_nw}x{h} (dpi {dpi_x:.0f} -> {dpi_x:.0f}y/{_hedef_dpi:.0f}x)")
+        w = _nw
+
     # 1) RGB → CMYK
+    # 16/11 v2 (PM19 dogrulandi): 6 kanalli Photoshop TIF'lerde
+    # [C,M,Y,K,alpha,spot] sirasi var. Pillow RGBA convert, alpha'yi
+    # SON kanaldan (SPOT) aliyordu -> YANLIS. Dogrusu:
+    #   alpha = TIF kanal 4 (gorunurluk)
+    #   spot  = TIF kanal 5 (Spot_1 kATMANI — spot ici dolu)
+    # PM19 spot'u TIF kanal 5'ten degil ALPHA'dan uretiyor (karsilastirma:
+    # PM19 spot %24.08 = TIF alpha dolu %26.35 - daraltma)
+    _tif_alpha = None
+    _tif_spot = None
+    try:
+        import tifffile as _tf
+        with _tf.TiffFile(tif_yolu) as _t:
+            _pg = _t.pages[0]
+            _nc = _pg.shape[-1] if len(_pg.shape) == 3 else 0
+        if _nc >= 6:
+            _arr = _tf.imread(tif_yolu)
+            _tif_alpha = _arr[..., 4]       # gorunurluk maskesi
+            _tif_spot = _arr[..., 5]         # Spot_1 katmani
+            log(f"  6+ kanalli TIF: alpha=k4, spot=k5 ayri okundu")
+    except Exception:
+        pass
+
     rgb = rgba[:, :, :3]
     cmyk = icc_mod.rgb_to_cmyk(
         rgb, ayar.icc_yol or None,
@@ -65,9 +104,24 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             cmyk[:, :, i] = np.clip(cmyk[:, :, i].astype(np.float32) * p, 0, 255).astype(np.uint8)
 
     # 3) Spot katmanı
-    spot = spot_mod.spot_kanali(rgba, daraltma=int(daraltma))
-    oran = spot_mod.kapsama_orani(spot > 0)
-    log(f"  spot: {ayar.spot_adi} (daraltma {daraltma} px, kapsama %{oran*100:.1f})")
+    # 16/11 v2: PM19 davranisi — 6 kanalli TIF'de ALPHA kanalindan spot uretilir.
+    # Alpha = gorunur bolge; PM19 bu bolgeyi (daraltilmis) beyaz olarak basar.
+    if _tif_alpha is not None:
+        _am = (_tif_alpha >= 128)
+        if daraltma > 0:
+            _am = spot_mod.erode(_am, int(daraltma))
+        # olcekleme yatayda yapildi; spot'u da ayni genislige getir
+        if _am.shape[1] != w:
+            # 16/11: numpy ile yatay yeniden ornekleme (PIL resize hatasi gecerdi)
+            _xs = np.linspace(0, _am.shape[1] - 1, w).astype(int)
+            _am = _am[:, _xs]
+        spot = (_am.astype(np.uint16) * 65535)
+        oran = spot_mod.kapsama_orani(_am)
+        log(f"  spot: {ayar.spot_adi} (ALPHA tabanli - PM19 uyumlu, daraltma {daraltma}px, kapsama %{oran*100:.1f})")
+    else:
+        spot = spot_mod.spot_kanali(rgba, daraltma=int(daraltma))
+        oran = spot_mod.kapsama_orani(spot > 0)
+        log(f"  spot: {ayar.spot_adi} (daraltma {daraltma} px, kapsama %{oran*100:.1f})")
 
     # 4) Halftone — her kanal kendi açısıyla
     hucre = max(2, int(ayar.halftone_hucre))
@@ -87,6 +141,21 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         gri16 = (gri.astype(np.uint32) * 65535 // 255).astype(np.uint16)
         kanallar.append(halftone_kanal(gri16, ad_norm, hucre=hucre))
     log(f"  halftone: {len(kanallar)} kanal, hücre {hucre}px, {sev} seviye")
+
+    # 16/11/2026 MSY (PM19): makine 8 KANAL bekliyor.
+    # Kanal duzeni (karsilastirmadan): [C, M, Y, SPOT, SPOT, Y, M, C] mirror.
+    # Her renk iki kez yazilir (2 nozle grubu). PM19 ile ayni boyut/yapi.
+    _8ch = []
+    for _src_idx, _ad in enumerate(ayar.kanal_sirasi):
+        if _src_idx < len(kanallar):
+            _8ch.append(kanallar[_src_idx])
+    while len(_8ch) < 8:
+        _8ch.append(np.zeros_like(kanallar[0]) if kanallar else
+                    np.zeros((h, w), dtype=np.uint16))
+    # mirror duzen: [c0, c1, c2, c3, c3, c2, c1, c0]
+    _mir = [_8ch[0], _8ch[1], _8ch[2], _8ch[3],
+            _8ch[3], _8ch[2], _8ch[1], _8ch[0]]
+    kanallar = _mir
 
     # 5) Pass interleave — satır sayısı pass'e tam bölünmeli
     pass_s = int(ayar.pass_sayisi)

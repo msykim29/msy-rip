@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
+  "version": "1.0.5",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Tek sayili piksel genisligi artik otomatik padding ile destekleniyor (s1.tif, s2.tiff hatasi duzeltildi)"
+  "notes": "PM19 ile birebir uyum: 8 kanal (mirror duzen), yatay DPI olcekleme (300->90), spot ALPHA tabanli, 6+ kanalli Photoshop TIF destegi"
 }
