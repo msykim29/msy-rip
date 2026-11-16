@@ -127,6 +127,11 @@ class AyarlarPenceresi(QDialog):
         self.hucre_spin.setRange(2, 32)
         self.hucre_spin.setValue(int(self.ayar.halftone_hucre))
         f4.addRow("Halftone hücresi (px)", self.hucre_spin)
+        from PyQt6.QtWidgets import QComboBox as _QCB
+        self.htur_combo = _QCB()
+        self.htur_combo.addItems(['sofm', 'am'])
+        self.htur_combo.setCurrentText(getattr(self.ayar, 'halftone_tur', 'sofm') or 'sofm')
+        f4.addRow("Halftone türü", self.htur_combo)
         v.addWidget(g4)
 
         # 5) Çıkış klasörü
@@ -231,6 +236,7 @@ class AyarlarPenceresi(QDialog):
         self.ayar.spot_adi = self.spot_edit.text().strip() or 'Spot_1'
         self.ayar.pass_sayisi = int(self.pass_spin.value())
         self.ayar.halftone_hucre = int(self.hucre_spin.value())
+        self.ayar.halftone_tur = self.htur_combo.currentText()
         self.ayar.cikis_klasoru = self.cikis_edit.text().strip()
 
         hatalar = self.ayar.dogrula()

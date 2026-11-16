@@ -64,3 +64,74 @@ def halftone_kanal(gri: np.ndarray, kanal_adi: str = 'K', hucre: int = 8) -> np.
     """Kanal adına göre doğru açıyla halftone uygula."""
     aci = ACILAR.get(kanal_adi.upper(), 45.0)
     return halftone(gri, aci=aci, hucre=hucre)
+
+
+# ---------------------------------------------------------------------------
+# SOFM benzeri STOKASTIK KUME NOKTA (PM19 uyumlu)
+# 19/11 analiz: PM19 (dtf_test.prt) noktalari ~13px yatay kume, komsu satir
+# korelasyonu ~0 (acisiz, grid-hizali stokastik desen). Acili AM ekran
+# (15/45/75 derece) 90dpi yatay zeminde kosegen siralar olusturup onizlemede
+# deseni KAYIK gosteriyordu.
+# ---------------------------------------------------------------------------
+
+_TILES = {}
+
+
+def _sofm_esik(tur=64, blur=2.0, seed=1234, blur_y=None):
+    """Kumeli stokastik esik matrisi (64x64, 0..1, uniform dagilim).
+
+    Beyaz gurultuyu bulaniklastirip siralayarak (rank) uretir:
+    - bulaniklik -> noktalar kumelesir (PM19 SOFM benzeri)
+    - rank siralama -> esik degerleri uniform olur, ton korunur
+    - blur_y: dikey bulaniklik (ayri) — PM19 nokta ~13px yatay, ~5px dikey
+    """
+    if blur_y is None:
+        blur_y = blur
+    anahtar = (tur, blur, blur_y, seed)
+    if anahtar in _TILES:
+        return _TILES[anahtar]
+    rng = np.random.default_rng(seed)
+    n = rng.random((tur, tur)).astype(np.float32)
+
+    def _blur1d(arr, sigma, axis):
+        if sigma <= 0.05:
+            return arr
+        k = int(sigma * 3) | 1
+        ax = np.arange(k) - k // 2
+        g = np.exp(-(ax ** 2) / (2 * sigma * sigma)).astype(np.float32)
+        g /= g.sum()
+        pad = k // 2
+
+        def _f(r, _g=g, _pad=pad):
+            return np.convolve(np.concatenate([r[-_pad:], r, r[:_pad]]), _g, 'same')[_pad:-_pad]
+
+        return np.apply_along_axis(_f, axis, arr)
+
+    n = _blur1d(n, blur, axis=1)   # yatay
+    n = _blur1d(n, blur_y, axis=0)  # dikey
+    # rank -> uniform esik
+    sirali = np.argsort(n.ravel())
+    t = np.empty_like(n).ravel()
+    t[sirali] = np.linspace(0, 1, t.size, dtype=np.float32)
+    t = t.reshape(tur, tur)
+    _TILES[anahtar] = t
+    return t
+
+
+def halftone_sofm(gri: np.ndarray, seed: int = 1234,
+                  hucre: int = 5) -> np.ndarray:
+    """PM19 benzeri stokastik kume halftone.
+
+    gri: 0..65535 (yuksek = cok murekkep). Donus: uint16 0/65535.
+    hucre: istatistiksel nokta capi (~px); blur = hucre/2.5.
+    """
+    if gri.ndim != 2:
+        raise ValueError("2 boyutlu gri görüntü beklenir")
+    h, w = gri.shape
+    blur = max(0.8, hucre * 2.6 / 2.5)   # yatay sigma (genis kume ~13px)
+    blur_y = max(0.8, hucre / 2.5)       # dikey sigma (PM19 ~5px periyot)
+    t = _sofm_esik(64, float(blur), seed, blur_y=float(blur_y))
+    ty, tx = t.shape
+    esik = np.tile(t, (h // ty + 2, w // tx + 2))[:h, :w]
+    ton = gri.astype(np.float32) / 65535.0
+    return (ton > esik).astype(np.uint16) * 65535

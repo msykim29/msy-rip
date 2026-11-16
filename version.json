@@ -1,5 +1,5 @@
 {
-  "version": "1.0.11",
+  "version": "1.0.12",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Desen kayigi duzeltmesi: halftone artik DIKEY OLCEKLEMEYE SONRA, PRT cozunurlugunde uygulanir (PM19 dtf_test.prt analizi: nokta hucresi ~5px @1800dpi). Once 300dpi halftone 6x LANCZOS ile uzatiliyordu -> noktalar bulanik/kayik basiliyordu."
+  "notes": "Halftone motoru degisti: acili AM ekran yerine PM19 benzeri SOFM stokastik kume noktalar (grid-hizali, ~13px kume, dikey ~5px). Acili ekran 90dpi yatay zeminde kosegen siralar olusturup onizlemede deseni kayik gosteriyordu."
 }

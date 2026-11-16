@@ -19,7 +19,7 @@ import numpy as np
 from . import icc as icc_mod
 from . import prt as prt_mod
 from . import spot as spot_mod
-from .halftone import halftone_kanal
+from .halftone import halftone_kanal, halftone_sofm
 from .settings import Ayarlar
 from .tif import piksel_oku
 
@@ -178,13 +178,21 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         log(f"  dikey olcek: {h} -> {yuk} satır (x{pass_s}, PM19 1800dpi uyumlu)")
 
     # 4b) Halftone — artik PRT cozunurlugunde (olceklemeye SONRA).
-    # Icerik duzgun olcekli, nokta hucresi PRT pikseli cinsinden (PM19 ~5px).
+    # 19/11 v6: varsayilan SOFM stokastik kume (PM19 Ditherparams benzeri).
+    # Acili AM ekran 90dpi yatay zeminde kosegen siralar yapip deseni
+    # kayik gosteriyordu. 'am' ayarlardan secilebilir.
+    _tur = str(getattr(ayar, 'halftone_tur', 'sofm') or 'sofm').lower()
     _son = []
-    for _k in kanallar:
+    for _i, _k in enumerate(kanallar):
         g16 = (_k['gri'].clip(0.0, 1.0) * 65535.0).astype(np.uint16)
-        _son.append(halftone_kanal(g16, _k['ad'], hucre=hucre) if sev > 2 else g16)
+        if sev <= 2:
+            _son.append(g16)
+        elif _tur == 'am':
+            _son.append(halftone_kanal(g16, _k['ad'], hucre=hucre))
+        else:
+            _son.append(halftone_sofm(g16, seed=1234 + _i * 17, hucre=hucre))
     kanallar = _son
-    log(f"  halftone: PRT cozunurlugunde, hucre {hucre}px (PRT px), {sev} seviye")
+    log(f"  halftone: PRT cozunurlugunde, tur={_tur}, hucre {hucre}px (PRT px), {sev} seviye")
 
     px = np.stack(kanallar, axis=0)  # (kanal, satir, piksel)
 
