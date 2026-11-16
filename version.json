@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "TIFF okunamama hatasına açıklayıcı mesaj (Photoshop layered TIFF teşhisi)"
+  "notes": "TIFF: tum sikistirma yontemleri (ZIP/LZW/JBIG/LZMA/Deflate) + Photoshop layered + 16-bit CMYK destegi (tifffile fallback)"
 }

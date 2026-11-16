@@ -12,7 +12,7 @@ from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 block_cipher = None
 
-hiddenimports = collect_submodules('PIL') + collect_submodules('numpy')
+hiddenimports = collect_submodules('PIL') + collect_submodules('numpy') + collect_submodules('tifffile')
 
 # 15/11/2026: PyQt6 platform eklentileri (qwindows.dll) otomatik alinmiyordu
 # -> "DLL load failed while importing QtWidgets" hatasi. Elle ekle.

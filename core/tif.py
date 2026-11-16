@@ -54,19 +54,18 @@ def bilgi_oku(yol: str) -> TifBilgi:
     # (Photoshop layer verisi) veya 8BIM kaynagi varsa Pillow acamiyordu.
     # Cozum: Pillow once normal denenir; olmazsa RAW modda TIFF taglari
     # elle okunur ve dosya en azindan META acilis icin taninir.
+    # 16/11 v2 MSY: TUM sikistirma yontemleri (ZIP/LZW/JBIG/LZMA/Deflate)
+    # + Photoshop layered + 16-bit CMYK desteklenir. Pillow once denenir,
+    # olmazsa tifffile (TIFF uzmani) acar.
     try:
         im = Image.open(yol)
     except Exception as e:
         _tip = _tiff_sihirli(yol)
-        if _tip == 'tiff':
+        if _tip != 'tiff':
             raise ValueError(
-                f"Dosya gercek TIFF ama Pillow acamadi (Photoshop layered/sikistirma). "
-                f"Hata: {e}\n"
-                f"Cozum: Dosyayi Photoshop'ta 'Baseline TIFF' / 'LZW' olarak kaydet, "
-                f"'Layer'lari duzlestir (Flatten).")
-        raise ValueError(
-            f"Dosya formati taninamadi (magic: {_tip}). "
-            f"Dosya gercekten .tif/.tiff mi? Photoshop'tan 'TIFF' olarak kaydedin.")
+                f"Dosya formati taninamadi (magic: {_tip}). "
+                f"Dosya gercekten .tif/.tiff mi? Photoshop'tan 'TIFF' olarak kaydedin.")
+        im = _tifffile_ac(yol, e)
     with im as im:
         w, h = im.size
         dpi = im.info.get('dpi') or (300.0, 300.0)
@@ -98,14 +97,17 @@ def piksel_oku(yol: str):
 
     Döner: (rgba: np.ndarray uint8 (h, w, 4), dpi: (x, y))
     """
-    # 16/11: Photoshop layered TIFF -> anlasilir hata ver
+    # 16/11 v2: Pillow olmazsa tifffile (tum sikistirmalar)
     try:
         im = Image.open(yol)
     except Exception as e:
-        raise ValueError(
-            f"TIF okunamadi: {e}. "
-            f"Photoshop: File > Save As > TIFF > 'LZW' veya 'None' compression, "
-            f"'Layers' isaretsiz (Flatten Image).")
+        _tip = _tiff_sihirli(yol)
+        if _tip != 'tiff':
+            raise ValueError(f"Dosya TIF degil (magic: {_tip}).")
+        im = _tifffile_ac(yol, e)
+        _dx = _tifffile_dpi(yol)
+        arr = np.array(im.convert('RGBA'), dtype=np.uint8)
+        return arr, (_dx, _dx)
     with im as im:
         dpi = im.info.get('dpi') or (300.0, 300.0)
         try:
@@ -115,3 +117,56 @@ def piksel_oku(yol: str):
         rgba = im.convert('RGBA')
         arr = np.array(rgba, dtype=np.uint8)
     return arr, (dx or 300.0, dy or 300.0)
+
+
+def _tifffile_ac(yol: str, orijinal_hata: Exception):
+    """16/11 v2: Pillow'un acamadigi TIFF'leri tifffile ile ac.
+
+    Destek (Pillow'un desteklemedikleri dahil):
+      - ZIP / Deflate / LZW / JBIG / LZMA sikistirma
+      - Photoshop layered TIFF (8BIM / tag 34375)
+      - 16-bit CMYK / Lab / BigTIFF
+    Donus: PIL.Image
+    """
+    try:
+        import tifffile
+        import numpy as _np
+    except ImportError:
+        raise ValueError(
+            f"Pillow bu TIFF'i acamadi: {orijinal_hata}\n"
+            f"tifffile kutuphanesi eksik. Programi guncelle.")
+    try:
+        arr = tifffile.imread(yol)
+        if arr.ndim == 3 and arr.shape[-1] >= 3:
+            rgb = arr[..., :3]
+        elif arr.ndim == 2:
+            rgb = arr
+        else:
+            rgb = arr
+        if rgb.dtype != _np.uint8:
+            _mx = float(rgb.max()) or 1.0
+            rgb = (rgb.astype(_np.float32) / _mx * 255.0).astype(_np.uint8)
+        if rgb.ndim == 2:
+            return Image.fromarray(rgb, mode='L')
+        return Image.fromarray(rgb, mode='RGB')
+    except Exception as e2:
+        raise ValueError(
+            f"TIFF acilamadi (Pillow: {str(orijinal_hata)[:60]} | "
+            f"tifffile: {str(e2)[:60]}). Dosya bozuk olabilir.")
+
+
+def _tifffile_dpi(yol: str):
+    """tifffile ile DPI oku (XResolution tag)."""
+    try:
+        import tifffile as _tf
+        with _tf.TiffFile(yol) as tf:
+            pg = tf.pages[0]
+            tag = pg.tags.get('XResolution')
+            if tag is not None:
+                v = tag.value
+                if isinstance(v, (list, tuple)) and len(v) >= 2:
+                    return float(v[0]) / float(v[1]) if v[1] else float(v[0])
+                return float(v)
+    except Exception:
+        pass
+    return 300.0
