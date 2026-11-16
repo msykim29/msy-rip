@@ -74,8 +74,14 @@ def yaz(yol: str, px: np.ndarray, genislik=720, yukseklik=1800,
     kanal, satir_sayisi, piksel_genislik = px.shape
     if px.dtype != np.uint16:
         px = px.astype(np.uint16)
+    # 16/11/2026 MSY (s2.tiff vakasi): tek sayili genislik hata veriyordu.
+    # PRT formati 16-bit piksel = 2 byte; genislik tek ise 1 sutun bos padding
+    # ekle (yazarken), okuyan tarafta gorunmez. SAi/PRT bu sekilde calisir.
+    _padded = False
     if piksel_genislik % 2:
-        raise ValueError("piksel genişliği çift olmalı")
+        px = np.pad(px, ((0, 0), (0, 0), (0, 1)), mode='constant', constant_values=0)
+        piksel_genislik = px.shape[2]
+        _padded = True
     satir_bayt = piksel_genislik * 2
 
     a5 = int(alan5) if alan5 is not None else int(yukseklik) // 2

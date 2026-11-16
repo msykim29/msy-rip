@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "TIFF: tum sikistirma yontemleri (ZIP/LZW/JBIG/LZMA/Deflate) + Photoshop layered + 16-bit CMYK destegi (tifffile fallback)"
+  "notes": "Tek sayili piksel genisligi artik otomatik padding ile destekleniyor (s1.tif, s2.tiff hatasi duzeltildi)"
 }
