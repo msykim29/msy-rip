@@ -158,20 +158,23 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             _8ch[3], _8ch[2], _8ch[1], _8ch[0]]
     kanallar = _mir
 
-    # 5) Pass tekrarı — 16/11 v3 (PM19 birebir doğrulandı)
-    # PM19: kaynak TIF N satır -> PRT N*pass satır. Pad YOK.
-    # Kaynak satır j, çıktıda pass kez tekrarlanır (interleave: satır j -> pass j%pass).
-    # Örnek: TIF 308 satır, 6 pass -> PRT 1848 satır (308*6). PM19 ile aynı.
+    # 5) Dikey ölçekleme — 16/11 v4 (PM19 birebir DOĞRULANDI)
+    # PM19: TIF 308 satır @300dpi -> PRT 1848 satır (dikey 6x = 1800dpi).
+    # Satırlar tekrar DEĞİL — dikey resize (her PRT satırı farklı, PM19 testiyle kanıtlandı:
+    # satır0 != satır1, satır0 != satır308 -> np.repeat YANLIŞTI, resmi 6x uzatıp siyah bastı).
+    # Dikey çarpan = pass sayısı (6 pass -> 1800/300 = 6x).
     pass_s = int(ayar.pass_sayisi)
     yuk = h * pass_s if pass_s > 1 else h
-    if pass_s > 1:
-        # her kanali pass kez tekrar-interleave et:
+    if pass_s > 1 and h > 1:
+        from PIL import Image as _PIL3
         _yeni = []
         for k in kanallar:
-            _blk = np.repeat(k, pass_s, axis=0)     # her satir pass kez
-            _yeni.append(_blk)
+            # k: (h, w) uint16 -> dikey resize
+            _img = _PIL3.fromarray(k.astype(np.float32), mode='F')
+            _img = _img.resize((k.shape[1], yuk), _PIL3.LANCZOS)
+            _yeni.append(np.array(_img).clip(0, 65535).astype(np.uint16))
         kanallar = _yeni
-        log(f"  pass tekrari: {h} satır x {pass_s} = {yuk} (PM19 uyumlu, pad YOK)")
+        log(f"  dikey olcek: {h} -> {yuk} satır (x{pass_s}, PM19 1800dpi uyumlu)")
 
     px = np.stack(kanallar, axis=0)  # (kanal, satir, piksel)
 

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.6",
+  "version": "1.0.7",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "PM19 birebir uyum: bant genisligi 1904px, satir=TIF*pass (pad yok), blok=satir_bayt*4-28. Baslik 12/12 alan PM19 ile ayni, dosya boyutu birebir."
+  "notes": "Baski duzeltmesi: dikey 6x resize (np.repeat hatasi resmi 6x uzatip siyah bastiyordu). PM19 1800dpi dikey olcekleme."
 }
