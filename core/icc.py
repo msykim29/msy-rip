@@ -42,6 +42,8 @@ def rgb_to_cmyk(rgb: np.ndarray, icc_yol: str = None,
 
     icc_yol verilmezse basit formül kullanılır (profil yoksa).
     """
+    from core.settings import ayarlar_profil_yolu
+    icc_yol = ayarlar_profil_yolu(icc_yol)
     if icc_yol and os.path.exists(icc_yol):
         try:
             img = Image.fromarray(rgb, mode='RGB')

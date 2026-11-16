@@ -195,7 +195,21 @@ class AyarlarPenceresi(QDialog):
                 self, "Uyumsuz profil",
                 f"Bu profil {b.get('renk_uzayi')} — CMYK yazıcı profili gerekli.")
             return
-        self.icc_edit.setText(yol)
+        # Profili kurulum klasorundeki profiles/ altina kopyala:
+        # masaustundeki orijinal silinse bile program kullanmaya devam eder.
+        import shutil
+        from core.settings import profil_klasoru
+        hedef = os.path.join(profil_klasoru(), os.path.basename(yol))
+        try:
+            if os.path.abspath(yol) != os.path.abspath(hedef):
+                shutil.copy2(yol, hedef)
+            self.icc_edit.setText(os.path.basename(yol))
+            QMessageBox.information(
+                self, "Profil kaydedildi",
+                f"Profil program klasörüne kopyalandı:\n{hedef}\n\n"
+                "Orijinal dosyayı silebilirsin — rip yine çalışır.")
+        except Exception as e:
+            self.icc_edit.setText(yol)
 
     def _cikis_sec(self):
         d = QFileDialog.getExistingDirectory(self, "Çıkış klasörü seç")

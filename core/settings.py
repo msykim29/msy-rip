@@ -100,8 +100,32 @@ class Ayarlar:
         for k, v in self.renk_yuzde.items():
             if not (0 <= float(v) <= 100):
                 hatalar.append(f'{k} yüzdesi {v} geçersiz (0-100)')
-        if self.icc_yol and not os.path.exists(self.icc_yol):
-            hatalar.append(f'ICC profili bulunamadı: {self.icc_yol}')
+        icc_yol = ayarlar_profil_yolu(self.icc_yol)
+        if icc_yol and not os.path.exists(icc_yol):
+            hatalar.append(f'ICC profili bulunamadı: {icc_yol}')
         if not self.spot_adi:
             hatalar.append('Spot adı boş')
         return hatalar
+
+
+def profil_klasoru() -> str:
+    """Uygulama yanindaki 'profiles' klasoru (kurulum klasoru).
+    Paketlenmis exe'te: C:\\MSYRip\\profiles gibi."""
+    if getattr(sys, 'frozen', False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    d = os.path.join(base, 'profiles')
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def ayarlar_profil_yolu(yol: str) -> str:
+    """Goreli profil adini profiles klasorunde cozumle.
+    Kayit sadece dosya adi tutar — masaustu silinse bile profil kalir."""
+    if not yol:
+        return ''
+    if os.path.isabs(yol) and os.path.exists(yol):
+        return yol
+    ad = os.path.basename(yol)
+    return os.path.join(profil_klasoru(), ad)

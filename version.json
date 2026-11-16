@@ -1,5 +1,5 @@
 {
-  "version": "1.0.8",
+  "version": "1.0.9",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Makine profili secimi eklendi: JLHS600EPS3200 4/6/8 PASS + Ozel. Ayarlardan makine sec, tum PRT parametreleri otomatik dolar."
+  "notes": "ICC profili artik kurulum klasorundeki profiles/ altina kopyalaniyor; masaustunden silinse bile rip calismaya devam ediyor."
 }
