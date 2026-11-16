@@ -49,7 +49,7 @@ class Ayarlar:
     cikis_klasoru: str = ''
 
     # Ek: halftone
-    halftone_hucre: int = 8      # nokta hücresi piksel (küçük = yüksek LPI)
+    halftone_hucre: int = 5      # nokta hücresi, PRT pikseli (PM19 ~5px @1800dpi)
     halftone_seviye: int = 4     # 2 veya 4
 
     # 16/11/2026: makine profili

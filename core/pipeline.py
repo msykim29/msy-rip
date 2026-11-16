@@ -124,8 +124,12 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         oran = spot_mod.kapsama_orani(spot > 0)
         log(f"  spot: {ayar.spot_adi} (daraltma {daraltma} px, kapsama %{oran*100:.1f})")
 
-    # 4) Halftone — her kanal kendi açısıyla
-    hucre = max(2, int(ayar.halftone_hucre))
+    # 4) Ham (devamli) kanallar — halftone DIKEY OLCEKLEME SONRASI uygulanir.
+    # 19/11 v5 (PM19 dtf_test.prt analiz): PM19 once icerigi 1800 dpi'ye
+    # duzgun olcekluyor, SONRA ~5px hucreli ekran uyguluyor (satir korelasyonu:
+    # corr(j,j+5)=0.87, corr(j,j+1)=0.05). Bizde halftone 300dpi'de yapilip
+    # sonra LANCZOS ile 6x uzatiliyordu -> noktalar simsiyah cizgiye donusuyor.
+    hucre = max(2, int(ayar.halftone_hucre))   # PRT pikselinde hucre (PM19: ~5)
     sev = max(2, int(ayar.halftone_seviye))
     kanallar = []
     for ad in ayar.kanal_sirasi:
@@ -133,26 +137,20 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         gri = _kanal_adi_to_index(ad_norm, cmyk)
         if gri is None:
             # Spot / White kanalı
-            gri16 = spot.copy()
-            # spot için de halftone uygula (binary'ye çevir)
-            kanallar.append(halftone_kanal(gri16, 'K', hucre=hucre) if sev > 2 else gri16)
-            continue
-        # 15/11/2026 HATA DUZELTMESI: uint16 * 65535 tasiyordu (255*65535=16.7M > 65535)
-        # -> gri16 256 cikiyordu, halftone her seyi 0 yapiyordu. uint32 ile carp.
-        gri16 = (gri.astype(np.uint32) * 65535 // 255).astype(np.uint16)
-        kanallar.append(halftone_kanal(gri16, ad_norm, hucre=hucre))
-    log(f"  halftone: {len(kanallar)} kanal, hücre {hucre}px, {sev} seviye")
+            gri16 = (spot.astype(np.float32) / 65535.0)  # 0..1 normalize
+        else:
+            gri16 = (gri.astype(np.float32) / 255.0)  # 0..1 normalize
+        kanallar.append({'ad': ad_norm, 'gri': gri16})
+    log(f"  ham kanal: {len(kanallar)} adet (halftone olceklemeye sira alindi)")
 
     # 16/11/2026 MSY (PM19): makine 8 KANAL bekliyor.
     # Kanal duzeni (karsilastirmadan): [C, M, Y, SPOT, SPOT, Y, M, C] mirror.
     # Her renk iki kez yazilir (2 nozle grubu). PM19 ile ayni boyut/yapi.
     _8ch = []
-    for _src_idx, _ad in enumerate(ayar.kanal_sirasi):
-        if _src_idx < len(kanallar):
-            _8ch.append(kanallar[_src_idx])
+    for _k in kanallar:
+        _8ch.append(_k)
     while len(_8ch) < 8:
-        _8ch.append(np.zeros_like(kanallar[0]) if kanallar else
-                    np.zeros((h, w), dtype=np.uint16))
+        _8ch.append({'ad': '_', 'gri': np.zeros((h, w), dtype=np.float32)})
     if getattr(ayar, 'mirror', True):
         # mirror duzen: [c0, c1, c2, c3, c3, c2, c1, c0]
         _mir = [_8ch[0], _8ch[1], _8ch[2], _8ch[3],
@@ -171,13 +169,22 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     if pass_s > 1 and h > 1:
         from PIL import Image as _PIL3
         _yeni = []
-        for k in kanallar:
-            # k: (h, w) uint16 -> dikey resize
-            _img = _PIL3.fromarray(k.astype(np.float32), mode='F')
-            _img = _img.resize((k.shape[1], yuk), _PIL3.LANCZOS)
-            _yeni.append(np.array(_img).clip(0, 65535).astype(np.uint16))
+        for _k in kanallar:
+            g = _k['gri']
+            _img = _PIL3.fromarray(g.astype(np.float32), mode='F')  # g zaten 0..1
+            _img = _img.resize((g.shape[1], yuk), _PIL3.LANCZOS)
+            _yeni.append({'ad': _k['ad'], 'gri': np.array(_img).clip(0.0, 1.0)})
         kanallar = _yeni
         log(f"  dikey olcek: {h} -> {yuk} satır (x{pass_s}, PM19 1800dpi uyumlu)")
+
+    # 4b) Halftone — artik PRT cozunurlugunde (olceklemeye SONRA).
+    # Icerik duzgun olcekli, nokta hucresi PRT pikseli cinsinden (PM19 ~5px).
+    _son = []
+    for _k in kanallar:
+        g16 = (_k['gri'].clip(0.0, 1.0) * 65535.0).astype(np.uint16)
+        _son.append(halftone_kanal(g16, _k['ad'], hucre=hucre) if sev > 2 else g16)
+    kanallar = _son
+    log(f"  halftone: PRT cozunurlugunde, hucre {hucre}px (PRT px), {sev} seviye")
 
     px = np.stack(kanallar, axis=0)  # (kanal, satir, piksel)
 

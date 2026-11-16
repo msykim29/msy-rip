@@ -14,7 +14,7 @@ MAKINELER = {
         "prt_bant_px": 1904,     # PRT piksel genisligi (bant)
         "prt_genislik": 720,     # baslik [1]
         "prt_yukseklik": 1800,   # baslik [2]
-        "halftone_hucre": 8,
+        "halftone_hucre": 5,
         "halftone_seviye": 4,
         "spot_adi": "Spot_1",
         "renk_yuzde": {"C": 100, "M": 100, "Y": 100, "K": 100, "White": 100},
@@ -27,7 +27,7 @@ MAKINELER = {
         "prt_bant_px": 1904,
         "prt_genislik": 720,
         "prt_yukseklik": 2400,
-        "halftone_hucre": 8,
+        "halftone_hucre": 5,
         "halftone_seviye": 4,
         "spot_adi": "Spot_1",
         "renk_yuzde": {"C": 100, "M": 100, "Y": 100, "K": 100, "White": 100},
@@ -40,7 +40,7 @@ MAKINELER = {
         "prt_bant_px": 1904,
         "prt_genislik": 720,
         "prt_yukseklik": 1200,
-        "halftone_hucre": 8,
+        "halftone_hucre": 5,
         "halftone_seviye": 4,
         "spot_adi": "Spot_1",
         "renk_yuzde": {"C": 100, "M": 100, "Y": 100, "K": 100, "White": 100},
@@ -53,7 +53,7 @@ MAKINELER = {
         "prt_bant_px": 1904,
         "prt_genislik": 720,
         "prt_yukseklik": 1800,
-        "halftone_hucre": 8,
+        "halftone_hucre": 5,
         "halftone_seviye": 4,
         "spot_adi": "Spot_1",
         "renk_yuzde": {"C": 100, "M": 100, "Y": 100, "K": 100, "White": 100},

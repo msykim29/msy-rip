@@ -1,5 +1,5 @@
 {
-  "version": "1.0.10",
+  "version": "1.0.11",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Makine secimi artik aninda tum ayarlari guncelliyor (PM19 gibi) — Uygula butonuna basmak gerekmiyor."
+  "notes": "Desen kayigi duzeltmesi: halftone artik DIKEY OLCEKLEMEYE SONRA, PRT cozunurlugunde uygulanir (PM19 dtf_test.prt analizi: nokta hucresi ~5px @1800dpi). Once 300dpi halftone 6x LANCZOS ile uzatiliyordu -> noktalar bulanik/kayik basiliyordu."
 }
