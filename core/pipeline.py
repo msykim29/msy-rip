@@ -56,16 +56,17 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # 16/11 v2 (PM19 dogrulandi): olcekleme SADECE YATAY.
     # PM19 dikeyde TIF yuksekligini korur (satir = TIF_yukseklik * pass).
     # Orn: TIF 308 satir -> PRT 1848 satir (308*6). Genislik 6335 -> 1904.
-    _hedef_dpi = float(ayar.prt_dpi or 0)
-    if _hedef_dpi > 0 and dpi_x > 0 and dpi_x > _hedef_dpi:
-        _oran = _hedef_dpi / dpi_x
-        _nw = max(2, int(round(w * _oran)))
+    # 16/11 v3 (PM19 birebir): yatay hedef = YAZICI BANT genisligi (px)
+    # PM19 ornegi: TIF 6335px @300dpi -> PRT 1904px (bant genisligi, ~90.16dpi)
+    # Dikey ASLA olceklenmez (satir = TIF_yukseklik * pass).
+    _bant_px = int(ayar.prt_bant_px or 0)
+    if _bant_px > 0 and w != _bant_px:
         from PIL import Image as _PILImage
         _img = _PILImage.fromarray(rgba)
-        _img = _img.resize((_nw, h), _PILImage.LANCZOS)   # dikey KORUNUR
+        _img = _img.resize((_bant_px, h), _PILImage.LANCZOS)   # dikey KORUNUR
         rgba = np.array(_img, dtype=np.uint8)
-        log(f"  olcek: {w}x{h} -> {_nw}x{h} (dpi {dpi_x:.0f} -> {dpi_x:.0f}y/{_hedef_dpi:.0f}x)")
-        w = _nw
+        log(f"  olcek: {w}x{h} -> {_bant_px}x{h} (bant genisligi, PM19 uyumlu)")
+        w = _bant_px
 
     # 1) RGB → CMYK
     # 16/11 v2 (PM19 dogrulandi): 6 kanalli Photoshop TIF'lerde
@@ -157,17 +158,20 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             _8ch[3], _8ch[2], _8ch[1], _8ch[0]]
     kanallar = _mir
 
-    # 5) Pass interleave — satır sayısı pass'e tam bölünmeli
+    # 5) Pass tekrarı — 16/11 v3 (PM19 birebir doğrulandı)
+    # PM19: kaynak TIF N satır -> PRT N*pass satır. Pad YOK.
+    # Kaynak satır j, çıktıda pass kez tekrarlanır (interleave: satır j -> pass j%pass).
+    # Örnek: TIF 308 satır, 6 pass -> PRT 1848 satır (308*6). PM19 ile aynı.
     pass_s = int(ayar.pass_sayisi)
-    yuk = h
+    yuk = h * pass_s if pass_s > 1 else h
     if pass_s > 1:
-        kalan = yuk % pass_s
-        if kalan:
-            # eksik satırları boş ekle
-            pad = pass_s - kalan
-            log(f"  satır {yuk} → {yuk+pad} (pass {pass_s} için {pad} satır eklendi)")
-            kanallar = [np.vstack([k, np.zeros((pad, k.shape[1]), dtype=k.dtype)]) for k in kanallar]
-            yuk += pad
+        # her kanali pass kez tekrar-interleave et:
+        _yeni = []
+        for k in kanallar:
+            _blk = np.repeat(k, pass_s, axis=0)     # her satir pass kez
+            _yeni.append(_blk)
+        kanallar = _yeni
+        log(f"  pass tekrari: {h} satır x {pass_s} = {yuk} (PM19 uyumlu, pad YOK)")
 
     px = np.stack(kanallar, axis=0)  # (kanal, satir, piksel)
 

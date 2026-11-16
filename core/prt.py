@@ -84,7 +84,14 @@ def yaz(yol: str, px: np.ndarray, genislik=720, yukseklik=1800,
         _padded = True
     satir_bayt = piksel_genislik * 2
 
-    a5 = int(alan5) if alan5 is not None else int(yukseklik) // 2
+    # 16/11 v3 (PM19 birebir): blok alani = satir_bayt*4 - 28
+    # PM19 ornek: 3808*4-28 = 15204 TAM eslesti.
+    # (DTF-RIPTEST'te -25 vardi; makineye ozel olabilir. alan5 parametresi
+    #  verilirse o oncelikli.)
+    if alan5 is not None:
+        a5 = int(alan5)
+    else:
+        a5 = satir_bayt * 4 - 28
 
     baslik = np.array(
         [MAGIC, genislik, yukseklik, satir_bayt, satir_sayisi, a5, 0, kanal, mod, 0, 0, 0],

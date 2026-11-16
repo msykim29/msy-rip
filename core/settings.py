@@ -56,10 +56,13 @@ class Ayarlar:
     prt_genislik: int = 720
     prt_yukseklik: int = 1800
 
-    # 16/11/2026 MSY (PM19 uyumu): hedef DPI
-    # PM19 TIF'i ~90 dpi'ye olcekleyip yaziyor (TIF 300dpi iken).
-    # 0 = olcekleme yok (eski davranis)
-    prt_dpi: int = 90
+    # 16/11 v3 (PM19 birebir): YAZICI BANT genisligi (px)
+    # PM19: TIF 6335px -> PRT 1904px. Bu deger makineye gore sabit.
+    # 0 = olcekleme yok
+    prt_bant_px: int = 1904
+
+    # eski (kullanilmiyor ama uyumluluk icin kaldi)
+    prt_dpi: int = 0
 
     def kaydet(self, yol: str = None) -> str:
         yol = yol or ayar_yolu()
