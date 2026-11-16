@@ -57,6 +57,8 @@ class AyarlarPenceresi(QDialog):
         b_makine.clicked.connect(self._makine_uygula)
         h0.addWidget(b_makine)
         self.makine_combo.currentTextChanged.connect(self._makine_bilgi)
+        # makine secimi degisir degimez tum ayarlar otomatik guncellenir
+        self.makine_combo.currentIndexChanged.connect(self._makine_uygula)
         v.addWidget(g0)
         self._makine_bilgi(self.makine_combo.currentText())
 
