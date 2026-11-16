@@ -32,8 +32,10 @@ class Ayarlar:
     kanal_sirasi: list = field(default_factory=lambda: ['C', 'M', 'Y', 'Spot_1'])
 
     # 2) Renk yüzdeleri
+    # 20/11 PM19 olcumu: C kaplamasi 6.9% vs kaynak ton 12.1% -> ~%60 ink limit.
+    # Ayarlardan degistirilebilir; PM19 esdegeri icin 60 kullan.
     renk_yuzde: dict = field(default_factory=lambda: {
-        'C': 100, 'M': 100, 'Y': 100, 'K': 100, 'White': 100
+        'C': 60, 'M': 60, 'Y': 60, 'K': 60, 'White': 100
     })
 
     # 3) ICC profili

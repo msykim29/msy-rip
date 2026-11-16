@@ -197,9 +197,12 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     while len(_8ch) < 8:
         _8ch.append({'ad': '_', 'gri': np.zeros((h, w), dtype=np.float32)})
     if getattr(ayar, 'mirror', True):
-        # mirror duzen: [c0, c1, c2, c3, c3, c2, c1, c0]
+        # 20/11 v8 OLCUMLE DUZELTILDI (PM19 capraz korelasyon, shift 0):
+        #   PM19: ch3=W, ch4=W, ch5=C, ch6=M, ch7=Y
+        #   => duzen [C, M, Y, W, W, C, M, Y] (beyaz ORTADA, ikinci CMY duz sira)
+        # Eski ters-mirror [..,Y,M,C] ikinci kafaya yanlis renk veriyordu.
         _mir = [_8ch[0], _8ch[1], _8ch[2], _8ch[3],
-                _8ch[3], _8ch[2], _8ch[1], _8ch[0]]
+                _8ch[3], _8ch[0], _8ch[1], _8ch[2]]
         kanallar = _mir
     else:
         kanallar = _8ch[:8]

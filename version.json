@@ -1,5 +1,5 @@
 {
-  "version": "1.0.13",
+  "version": "1.0.14",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "KOK DUELTME: (1) CMYK TIFler artik ham kanallardan okunuyor — Once Pillow C,M,Y kanallarini RGB sanip bozuk donusum yapiyordu (K %81 tasiyordu -> renkler kayboluyordu). (2) Varsayilan kanal duzeni K siz: [C,M,Y,White,White,C,M,Y] — PM19 ile ayni; K beyaz kafaya yazilinca renkler saciyordu. (3) Beyaz = alpha maskesi (5 ve 6 kanalli TIFler desteklendi)."
+  "notes": "Kanal duzeni PM19 ile birebir olcumlendi: [C,M,Y,W,W,C,M,Y]. Eski ters-mirror ikinci kafaya yanlis renk verisi yolluyordu (kayik/kayma). CMY ink limit %60 (PM19 olcumu: kaplama 6.9% vs ton 12.1%)."
 }
