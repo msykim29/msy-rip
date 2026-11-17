@@ -1,5 +1,5 @@
 {
-  "version": "1.0.17",
+  "version": "1.0.18",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Bantlanma duzeltmesi: tekrarlanan satirlarin dither art dekorrele (her satir ayri esik satiri). Onceki surumde 6 ayni icerikli satir benzer noktalar basip gorunur yatay cizgi bantlari olusturuyordu. Artik PM19 gibi komsu satirlar tamamen farkli noktalar (corr ~0), yatay kume ~14px ayni."
+  "notes": "Dither periyodu kaldirildi: her satir tamamen bagimsiz gurultuden kume esik uretilir (onceki 64 satirlik ~1mm periyot ufak bantlar + C/M deseni cakismasi dalgalanma yapiyordu). Ton tam korunur, komsu satir korelasyonu ~0.09 (PM19 ~0.05), hiz 0.24sn."
 }

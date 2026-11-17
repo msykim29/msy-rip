@@ -120,30 +120,34 @@ def _sofm_esik(tur=64, blur=2.0, seed=1234, blur_y=None):
 
 def halftone_sofm(gri: np.ndarray, seed: int = 1234,
                   hucre: int = 5) -> np.ndarray:
-    """PM19 benzeri stokastik kume halftone.
+    """PM19 benzeri stokastik kume halftone (v3: aperiodik satir dither).
 
     gri: 0..65535 (yuksek = cok murekkep). Donus: uint16 0/65535.
     hucre: istatistiksel nokta capi (~px).
 
-    17/11 v2 (bantlanma duzeltmesi): np.repeat ile olusan 6 ayni icerikli
-    satirin dither'i TAMAMEN farkli olmali (PM19 olcumu: komsu satir corr
-    ~0.05). Eski duz tile ~0.9 corr uretip baskida gorunur 6'li bant
-    yapiyordu. Cozum: her satir tile'in FARKLI bir satirini kullanir
-    (satir bazli uzak atlamali secim) -> satirlar arasi dekorrelasyon,
-    yatayda kume (PM19: ~13px genis, 1 satir yuksek dash noktalar).
+    17/11 v3 (periyot/dalga duzeltmesi): onceki (satir*17)%64 secimi 64
+    satirlik (~1mm) periyot uretiyordu -> baskida ufak bantlar + C/M
+    kanal desenleri cakismi dalgalanma. Yeni yontem: her satir ICIN
+    bagimsiz gurultuden yatay kumeli esik uretilir (satirlar arasi hicbir
+    iliski yok, periyot YOK; yatayda ~13-14px kume, PM19 olcumu ile uyumlu).
     """
     if gri.ndim != 2:
         raise ValueError("2 boyutlu gri görüntü beklenir")
     h, w = gri.shape
-    blur = max(0.8, hucre * 2.6 / 2.5)   # yatay sigma (genis kume ~13px)
-    blur_y = max(0.8, hucre / 2.5)       # dikey sigma
-    t = _sofm_esik(64, float(blur), seed, blur_y=float(blur_y))
-    ty, tx = t.shape
-    # her goruntu satiri tile'in ayri bir satirini kullanir (uzak atlamali)
-    satir_idx = (np.arange(h) * 17 + seed) % ty
-    esik_2 = t[satir_idx]                # (h, tx)
-    # x yonunde tile tekrari
-    tekrar = w // tx + 2
-    esik = np.tile(esik_2, (1, tekrar))[:, :w]
+    rng = np.random.default_rng(seed)
+    n = rng.random((h, w)).astype(np.float32)
+    # yatay blur (kume): hareketli ort. cumsum ile vektorize
+    k = max(3, int(hucre * 2.6) | 1)      # pencere ~13px
+    # dongusel (wrap-x) hareketli ortalama — cumsum ile vektorize
+    nb = np.concatenate([n, n[:, :k - 1]], axis=1)
+    csx = np.cumsum(nb, axis=1)
+    olc = csx[:, k - 1:].copy()
+    olc[:, 1:] -= csx[:, :-k]
+    blured = olc / k
+    # satir bazli rank -> uniform esik (her satir bagimsiz, ton korunur)
+    siralama = np.argsort(blured, axis=1, kind='stable')
+    esik = np.empty_like(blured)
+    satir_deger = np.linspace(0.0, 1.0, w, dtype=np.float32)[None, :]
+    np.put_along_axis(esik, siralama, np.broadcast_to(satir_deger, (h, w)), axis=1)
     ton = gri.astype(np.float32) / 65535.0
     return (ton > esik).astype(np.uint16) * 65535
