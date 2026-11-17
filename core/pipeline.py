@@ -55,7 +55,15 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     try:
         import tifffile as _tf
         _a = _tf.imread(tif_yolu)
-        if _a.ndim == 3 and _a.shape[2] >= 4 and _a.dtype == np.uint8:
+        # 17/11 duzeltme: sadece CMYK/SEPARATED TIF'ler ham okunur;
+        # RGBA (fotometrik=RGB) TIF'lerde Pillow yolu (RGB->CMYK) kullanilir.
+        _foto = None
+        try:
+            with _tf.TiffFile(tif_yolu) as _t:
+                _foto = int(_t.pages[0].photometric)
+        except Exception:
+            _foto = None
+        if _a.ndim == 3 and _a.shape[2] >= 4 and _a.dtype == np.uint8 and _foto == 5:  # 5 = SEPARATED (CMYK)
             _ham = _a
             log(f"  CMYK TIF: ham {_a.shape[2]} kanal dogrudan okundu (ICC donusumu atlandi)")
     except Exception:
@@ -79,7 +87,21 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # 16/11 v3 (PM19 birebir): yatay hedef = YAZICI BANT genisligi (px)
     # PM19 ornegi: TIF 6335px @300dpi -> PRT 1904px (bant genisligi, ~90.16dpi)
     # Dikey ASLA olceklenmez (satir = TIF_yukseklik * pass).
+    # 17/11 PM19: bant genisligi = fiziksel genislik x ~90.16dpi, 8'in kati
+    # (olcum: 53.5cm->1904px, 58cm->2056px); kullanici prt_bant_px ile asabilir
+    _dpi_gelen = 300.0
+    try:
+        import tifffile as _tfd
+        with _tfd.TiffFile(tif_yolu) as _t:
+            _rx = _t.pages[0].tags.get('XResolution')
+            if _rx is not None and _rx.value[1]:
+                _dpi_gelen = float(_rx.value[0]) / float(_rx.value[1])
+    except Exception:
+        pass
     _bant_px = int(ayar.prt_bant_px or 0)
+    if _bant_px <= 0:
+        _bant_px = max(8, 8 * int(round(w / _dpi_gelen * 90.16 / 8)))
+        log(f"  bant: {w}px @ {_dpi_gelen:.0f}dpi -> {_bant_px}px (PM19 olcek)")
     if _bant_px > 0 and w != _bant_px:
         from PIL import Image as _PILImage
         if _ham is not None:
@@ -126,13 +148,35 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
 
     if _ham is not None:
         cmyk = _ham[:, :, :4].copy()
+        if _ham.shape[2] >= 5:
+            _alh = _ham[:, :, 4] > 127
+            if not _alh.all():
+                cmyk[~_alh] = 0
         log("  CMYK: TIF kanallarindan dogrudan (K dahil)")
     else:
         rgb = rgba[:, :, :3]
         cmyk = icc_mod.rgb_to_cmyk(
             rgb, ayar.icc_yol or None,
             intent=ayar.icc_intent, bpc=bool(ayar.icc_bpc))
-        log(f"  CMYK dönüşümü tamam (profil: {os.path.basename(ayar.icc_yol) if ayar.icc_yol else 'basit'})")
+        # 17/11: seffaf bolgelerde murekkep YOK (alpha ile maskele) —
+        # onceden seffaf arka plan K=1 uretip her yeri murekkeple dolduruyordu
+        _al = rgba[:, :, 3] > 127
+        if not _al.all():
+            cmyk = cmyk.copy()
+            cmyk[~_al] = 0
+        log(f"  CMYK dönüşümü tamam (profil: {os.path.basename(ayar.icc_yol) if ayar.icc_yol else 'basit'}"
+             f"{' + alpha maske' if not _al.all() else ''})")
+
+    # 17/11 PM19: siyah = zengin siyah (C+M+Y). K kanali yazilmadiginda
+    # K murekkebi C/M/Y'ye dagitilir (undercolor), yoksa siyah cizgiler
+    # sadece beyaz katta kalir.
+    _k_yazili = any(str(_ad).strip().upper() == 'K' for _ad in ayar.kanal_sirasi)
+    if not _k_yazili and cmyk.shape[2] >= 4:
+        _K = cmyk[:, :, 3]
+        cmyk = cmyk.copy()
+        for _i in range(3):
+            cmyk[:, :, _i] = np.maximum(cmyk[:, :, _i], _K)
+        log("  siyah: K -> C+M+Y dagitildi (zengin siyah, PM19 uyumlu)")
 
     # 2) Renk yüzdeleri
     yzd = ayar.renk_yuzde
@@ -186,7 +230,10 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         else:
             gri16 = (gri.astype(np.float32) / 255.0)  # 0..1 normalize
         kanallar.append({'ad': ad_norm, 'gri': gri16})
-    log(f"  ham kanal: {len(kanallar)} adet (halftone olceklemeye sira alindi)")
+    # 17/11 PM19: goruntu YATAY AYNALI yazilir (DTF transfer icin)
+    for _k in kanallar:
+        _k['gri'] = _k['gri'][:, ::-1].copy()
+    log(f"  ham kanal: {len(kanallar)} adet, yatay AYNALANDI (PM19 uyumlu)")
 
     # 16/11/2026 MSY (PM19): makine 8 KANAL bekliyor.
     # Kanal duzeni (karsilastirmadan): [C, M, Y, SPOT, SPOT, Y, M, C] mirror.
@@ -242,16 +289,39 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     kanallar = _son
     log(f"  halftone: PRT cozunurlugunde, tur={_tur}, hucre {hucre}px (PRT px), {sev} seviye")
 
-    px = np.stack(kanallar, axis=0)  # (kanal, satir, piksel)
+    # 17/11 PM19 FORMATI (v2+v3 diagnostik ile olculdu):
+    # 8 duzlem = 8 dikey blok (TERS): duzlem p = blok 7-p; dongu g -> satir L=231(8-p)-1-g
+    # slot 1=C, 2=M, 4=Y; beyaz murekkep slot 4'e (Y ile birlesik). Gorsel YATAY AYNALI.
+    H_PRT = kanallar[0].shape[0]
+    W_PRT = kanallar[0].shape[1]
+    NB = 8
+    if H_PRT % NB:
+        raise RipHatasi(f"Satir sayisi {H_PRT} 8'e bolunmeli (blok yapisi)")
+    BLK = H_PRT // NB  # 231
+    C = kanallar[0] if len(kanallar) > 0 else np.zeros((H_PRT, W_PRT), np.uint16)
+    M = kanallar[1] if len(kanallar) > 1 else np.zeros((H_PRT, W_PRT), np.uint16)
+    Y = kanallar[2] if len(kanallar) > 2 else np.zeros((H_PRT, W_PRT), np.uint16)
+    W_ = kanallar[3] if len(kanallar) > 3 else np.zeros((H_PRT, W_PRT), np.uint16)
+    YW = np.maximum(Y, W_)  # slot4 = Y | beyaz
+    planes = np.zeros((NB, H_PRT, W_PRT), np.uint16)
+    for p in range(NB):
+        blok_alt = (8 - p) * BLK
+        for g in range(BLK):
+            L = blok_alt - 1 - g  # ters yon
+            r = 8 * g
+            planes[p, r + 1] = C[L]
+            planes[p, r + 2] = M[L]
+            planes[p, r + 4] = YW[L]
+    log(f"  blok yapi: 8 duzlem x {BLK} dongu, ters yon (PM19 v3 olcumlu)")
 
     # 6) .PRT yaz
     cikis = ayar.cikis_klasoru or os.path.dirname(tif_yolu)
     os.makedirs(cikis, exist_ok=True)
     ad = os.path.splitext(os.path.basename(tif_yolu))[0]
     hedef = os.path.join(cikis, f"{ad}.prt")
-    prt_mod.yaz(hedef, px,
+    prt_mod.yaz(hedef, planes,
                 genislik=int(ayar.prt_genislik),
                 yukseklik=int(ayar.prt_yukseklik),
                 mod=2)
-    log(f"  yazıldı: {hedef} ({os.path.getsize(hedef):,} bayt)")
+    log(f"  yazildi: {hedef} ({os.path.getsize(hedef):,} bayt)")
     return hedef

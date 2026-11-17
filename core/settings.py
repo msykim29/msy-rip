@@ -68,7 +68,7 @@ class Ayarlar:
     # 16/11 v3 (PM19 birebir): YAZICI BANT genisligi (px)
     # PM19: TIF 6335px -> PRT 1904px. Bu deger makineye gore sabit.
     # 0 = olcekleme yok
-    prt_bant_px: int = 1904
+    prt_bant_px: int = 0          # 0 = otomatik (PM19 olcek: genislik x 90.16dpi, 8 kati)
 
     # eski (kullanilmiyor ama uyumluluk icin kaldi)
     prt_dpi: int = 0

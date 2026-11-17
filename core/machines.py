@@ -11,7 +11,7 @@ MAKINELER = {
         "kanal_sirasi": ["C", "M", "Y", "Spot_1"],
         "mirror": True,          # 8 kanal: [c0,c1,c2,c3, c3,c2,c1,c0]
         "pass_sayisi": 6,
-        "prt_bant_px": 1904,     # PRT piksel genisligi (bant)
+        "prt_bant_px": 0,     # PRT piksel genisligi (bant)
         "prt_genislik": 720,     # baslik [1]
         "prt_yukseklik": 1800,   # baslik [2]
         "halftone_hucre": 5,
@@ -24,7 +24,7 @@ MAKINELER = {
         "kanal_sirasi": ["C", "M", "Y", "Spot_1"],
         "mirror": True,
         "pass_sayisi": 8,
-        "prt_bant_px": 1904,
+        "prt_bant_px": 0,
         "prt_genislik": 720,
         "prt_yukseklik": 2400,
         "halftone_hucre": 5,
@@ -37,7 +37,7 @@ MAKINELER = {
         "kanal_sirasi": ["C", "M", "Y", "Spot_1"],
         "mirror": True,
         "pass_sayisi": 4,
-        "prt_bant_px": 1904,
+        "prt_bant_px": 0,
         "prt_genislik": 720,
         "prt_yukseklik": 1200,
         "halftone_hucre": 5,
@@ -50,7 +50,7 @@ MAKINELER = {
         "kanal_sirasi": ["C", "M", "Y", "Spot_1"],
         "mirror": True,
         "pass_sayisi": 6,
-        "prt_bant_px": 1904,
+        "prt_bant_px": 0,
         "prt_genislik": 720,
         "prt_yukseklik": 1800,
         "halftone_hucre": 5,
@@ -69,7 +69,7 @@ def uygula(ayar, makine_adi):
     ayar.makine = makine_adi
     ayar.kanal_sirasi = list(m["kanal_sirasi"])
     ayar.pass_sayisi = m["pass_sayisi"]
-    ayar.prt_bant_px = m["prt_bant_px"]
+    ayar.prt_bant_px = m["prt_bant_px"]  # 0 = otomatik
     ayar.prt_genislik = m["prt_genislik"]
     ayar.prt_yukseklik = m["prt_yukseklik"]
     ayar.halftone_hucre = m["halftone_hucre"]
