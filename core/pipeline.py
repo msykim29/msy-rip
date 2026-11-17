@@ -266,9 +266,11 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         _yeni = []
         for _k in kanallar:
             g = _k['gri']
-            _img = _PIL3.fromarray(g.astype(np.float32), mode='F')  # g zaten 0..1
-            _img = _img.resize((g.shape[1], yuk), _PIL3.LANCZOS)
-            _yeni.append({'ad': _k['ad'], 'gri': np.array(_img).clip(0.0, 1.0)})
+            # 17/11 PM19 cizgi genislikleri: dikey TEKRAR (kaynak satir -> pass
+            # kopyasi). LANCZOS ince kenarlari +2-3 satir genisletip baskida
+            # hafif kayma/kayit bulaniklastiriyordu.
+            _r = np.repeat(g, pass_s, axis=0)  # (h, w) -> (h*pass_s, w)
+            _yeni.append({'ad': _k['ad'], 'gri': _r.clip(0.0, 1.0)})
         kanallar = _yeni
         log(f"  dikey olcek: {h} -> {yuk} satır (x{pass_s}, PM19 1800dpi uyumlu)")
 

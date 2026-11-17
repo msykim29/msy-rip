@@ -1,5 +1,5 @@
 {
-  "version": "1.0.15",
+  "version": "1.0.16",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "PRT formati tamamen cozuldu (PM19 diagnostik v1/v2/v3 olcumle): 8 duzlem = 8 dikey blok (ters yon, dongu g -> satir 231(8-p)-1-g), slot 1=C 2=M 4=Y|beyaz, gorsel yatay AYNALI, bant genisligi otomatik (fiziksel x 90.16dpi, 8 kati), siyah = zengin siyah CMY, seffaf bolgeler murekkepsiz. 24/24 seri konum testi PM19 ile uyumlu."
+  "notes": "Dikey olcekleme LANCZOS yerine TEKRAR (kaynak satir -> 6 kopya, PM19 ile ayni). Baskidaki son hafif kayma bundan geliyordu: LANCZOS ince kenarlari 2-3 satir genisletiyordu. Artik cikti PM19 ile SATIR SATIR BIREBIR (24/24 seri, 0 fark)."
 }
