@@ -1,5 +1,5 @@
 {
-  "version": "1.0.16",
+  "version": "1.0.17",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Dikey olcekleme LANCZOS yerine TEKRAR (kaynak satir -> 6 kopya, PM19 ile ayni). Baskidaki son hafif kayma bundan geliyordu: LANCZOS ince kenarlari 2-3 satir genisletiyordu. Artik cikti PM19 ile SATIR SATIR BIREBIR (24/24 seri, 0 fark)."
+  "notes": "Bantlanma duzeltmesi: tekrarlanan satirlarin dither art dekorrele (her satir ayri esik satiri). Onceki surumde 6 ayni icerikli satir benzer noktalar basip gorunur yatay cizgi bantlari olusturuyordu. Artik PM19 gibi komsu satirlar tamamen farkli noktalar (corr ~0), yatay kume ~14px ayni."
 }

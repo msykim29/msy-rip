@@ -123,15 +123,27 @@ def halftone_sofm(gri: np.ndarray, seed: int = 1234,
     """PM19 benzeri stokastik kume halftone.
 
     gri: 0..65535 (yuksek = cok murekkep). Donus: uint16 0/65535.
-    hucre: istatistiksel nokta capi (~px); blur = hucre/2.5.
+    hucre: istatistiksel nokta capi (~px).
+
+    17/11 v2 (bantlanma duzeltmesi): np.repeat ile olusan 6 ayni icerikli
+    satirin dither'i TAMAMEN farkli olmali (PM19 olcumu: komsu satir corr
+    ~0.05). Eski duz tile ~0.9 corr uretip baskida gorunur 6'li bant
+    yapiyordu. Cozum: her satir tile'in FARKLI bir satirini kullanir
+    (satir bazli uzak atlamali secim) -> satirlar arasi dekorrelasyon,
+    yatayda kume (PM19: ~13px genis, 1 satir yuksek dash noktalar).
     """
     if gri.ndim != 2:
         raise ValueError("2 boyutlu gri görüntü beklenir")
     h, w = gri.shape
     blur = max(0.8, hucre * 2.6 / 2.5)   # yatay sigma (genis kume ~13px)
-    blur_y = max(0.8, hucre / 2.5)       # dikey sigma (PM19 ~5px periyot)
+    blur_y = max(0.8, hucre / 2.5)       # dikey sigma
     t = _sofm_esik(64, float(blur), seed, blur_y=float(blur_y))
     ty, tx = t.shape
-    esik = np.tile(t, (h // ty + 2, w // tx + 2))[:h, :w]
+    # her goruntu satiri tile'in ayri bir satirini kullanir (uzak atlamali)
+    satir_idx = (np.arange(h) * 17 + seed) % ty
+    esik_2 = t[satir_idx]                # (h, tx)
+    # x yonunde tile tekrari
+    tekrar = w // tx + 2
+    esik = np.tile(esik_2, (1, tekrar))[:, :w]
     ton = gri.astype(np.float32) / 65535.0
     return (ton > esik).astype(np.uint16) * 65535
