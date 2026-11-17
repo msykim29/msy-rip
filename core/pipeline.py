@@ -254,76 +254,66 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     else:
         kanallar = _8ch[:8]
 
-    # 5) Dikey ölçekleme — 16/11 v4 (PM19 birebir DOĞRULANDI)
-    # PM19: TIF 308 satır @300dpi -> PRT 1848 satır (dikey 6x = 1800dpi).
-    # Satırlar tekrar DEĞİL — dikey resize (her PRT satırı farklı, PM19 testiyle kanıtlandı:
-    # satır0 != satır1, satır0 != satır308 -> np.repeat YANLIŞTI, resmi 6x uzatıp siyah bastı).
-    # Dikey çarpan = pass sayısı (6 pass -> 1800/300 = 6x).
-    pass_s = int(ayar.pass_sayisi)
-    yuk = h * pass_s if pass_s > 1 else h
-    if pass_s > 1 and h > 1:
-        from PIL import Image as _PIL3
-        _yeni = []
-        for _k in kanallar:
-            g = _k['gri']
-            # 17/11 PM19 cizgi genislikleri: dikey TEKRAR (kaynak satir -> pass
-            # kopyasi). LANCZOS ince kenarlari +2-3 satir genisletip baskida
-            # hafif kayma/kayit bulaniklastiriyordu.
-            _r = np.repeat(g, pass_s, axis=0)  # (h, w) -> (h*pass_s, w)
-            _yeni.append({'ad': _k['ad'], 'gri': _r.clip(0.0, 1.0)})
-        kanallar = _yeni
-        log(f"  dikey olcek: {h} -> {yuk} satır (x{pass_s}, PM19 1800dpi uyumlu)")
-
-    # 4b) Halftone — artik PRT cozunurlugunde (olceklemeye SONRA).
-    # 19/11 v6: varsayilan SOFM stokastik kume (PM19 Ditherparams benzeri).
-    # Acili AM ekran 90dpi yatay zeminde kosegen siralar yapip deseni
-    # kayik gosteriyordu. 'am' ayarlardan secilebilir.
+    # 17/11 FINAL: blok bazli yazici — dikey tekrar + halftone + PRT yazimi
+    # tek geciste, duzlem duzlem akisla (buyuk dosyalar icin bellek dostu).
+    # Kanallar: kaynak cozunurlukte float 0..1, YATAY AYNALI (yukarida yapildi).
+    pass_s = max(1, int(ayar.pass_sayisi))
+    H_src, W_PRT = kanallar[0]['gri'].shape
+    H_PRT = H_src * pass_s
+    pad = (-H_PRT) % 8
+    H_PAD = H_PRT + pad
+    BLK = H_PAD // 8
+    if pad:
+        log(f"  pad: {H_PRT} -> {H_PAD} satir (8'in kati, alt {pad} bos satir)")
+    kan = {k['ad'].strip().upper(): k['gri'] for k in kanallar}
+    C = kan.get('C'); M = kan.get('M'); Y = kan.get('Y')
+    W_ = kan.get('SPOT_1')
+    if W_ is None:
+        W_ = kan.get('WHITE')
+    if W_ is None:
+        W_ = kan.get('W')
+    if Y is not None and W_ is not None:
+        YW = np.maximum(Y, W_)
+    else:
+        YW = Y if Y is not None else W_
+    _hz = max(2, int(getattr(ayar, 'halftone_hucre', 5) or 5))
+    _sev = max(2, int(ayar.halftone_seviye))
     _tur = str(getattr(ayar, 'halftone_tur', 'sofm') or 'sofm').lower()
-    _son = []
-    for _i, _k in enumerate(kanallar):
-        g16 = (_k['gri'].clip(0.0, 1.0) * 65535.0).astype(np.uint16)
-        if sev <= 2:
-            _son.append(g16)
-        elif _tur == 'am':
-            _son.append(halftone_kanal(g16, _k['ad'], hucre=hucre))
-        else:
-            _son.append(halftone_sofm(g16, seed=1234 + _i * 17, hucre=hucre))
-    kanallar = _son
-    log(f"  halftone: PRT cozunurlugunde, tur={_tur}, hucre {hucre}px (PRT px), {sev} seviye")
 
-    # 17/11 PM19 FORMATI (v2+v3 diagnostik ile olculdu):
-    # 8 duzlem = 8 dikey blok (TERS): duzlem p = blok 7-p; dongu g -> satir L=231(8-p)-1-g
-    # slot 1=C, 2=M, 4=Y; beyaz murekkep slot 4'e (Y ile birlesik). Gorsel YATAY AYNALI.
-    H_PRT = kanallar[0].shape[0]
-    W_PRT = kanallar[0].shape[1]
-    NB = 8
-    if H_PRT % NB:
-        raise RipHatasi(f"Satir sayisi {H_PRT} 8'e bolunmeli (blok yapisi)")
-    BLK = H_PRT // NB  # 231
-    C = kanallar[0] if len(kanallar) > 0 else np.zeros((H_PRT, W_PRT), np.uint16)
-    M = kanallar[1] if len(kanallar) > 1 else np.zeros((H_PRT, W_PRT), np.uint16)
-    Y = kanallar[2] if len(kanallar) > 2 else np.zeros((H_PRT, W_PRT), np.uint16)
-    W_ = kanallar[3] if len(kanallar) > 3 else np.zeros((H_PRT, W_PRT), np.uint16)
-    YW = np.maximum(Y, W_)  # slot4 = Y | beyaz
-    planes = np.zeros((NB, H_PRT, W_PRT), np.uint16)
-    for p in range(NB):
-        blok_alt = (8 - p) * BLK
-        for g in range(BLK):
-            L = blok_alt - 1 - g  # ters yon
-            r = 8 * g
-            planes[p, r + 1] = C[L]
-            planes[p, r + 2] = M[L]
-            planes[p, r + 4] = YW[L]
-    log(f"  blok yapi: 8 duzlem x {BLK} dongu, ters yon (PM19 v3 olcumlu)")
-
-    # 6) .PRT yaz
     cikis = ayar.cikis_klasoru or os.path.dirname(tif_yolu)
     os.makedirs(cikis, exist_ok=True)
     ad = os.path.splitext(os.path.basename(tif_yolu))[0]
     hedef = os.path.join(cikis, f"{ad}.prt")
-    prt_mod.yaz(hedef, planes,
-                genislik=int(ayar.prt_genislik),
-                yukseklik=int(ayar.prt_yukseklik),
-                mod=2)
+    sb = W_PRT * 2
+    blok_alan = {3808: 15204, 4112: 16440}.get(sb, sb * 4 - 28)
+    baslik = np.array([0x5555, int(ayar.prt_genislik), int(ayar.prt_yukseklik),
+                       sb, H_PAD, blok_alan, 0, 8, 2, 0, 0, 0], dtype='<u4')
+
+    def _ht(rows_f, seed):
+        ton = (rows_f.clip(0.0, 1.0) * 65535.0).astype(np.uint16)
+        if _sev <= 2:
+            return ton
+        if _tur == 'am':
+            return halftone_kanal(ton, 'K', hucre=_hz)
+        return halftone_sofm(ton, seed=seed, hucre=_hz)
+
+    with open(hedef, 'wb') as f:
+        f.write(baslik.tobytes())
+        for p in range(8):
+            blok_alt = (8 - p) * BLK
+            plane = np.zeros((H_PAD, W_PRT), dtype='>u2')
+            Ls = blok_alt - 1 - np.arange(BLK)            # ters yon
+            gecerli = np.where(Ls < H_PRT)[0]
+            src = np.clip(Ls[gecerli], 0, H_PRT - 1) // pass_s
+            if len(gecerli):
+                if C is not None:
+                    plane[8 * gecerli + 1] = _ht(C[src], 1234 + p * 17)
+                if M is not None:
+                    plane[8 * gecerli + 2] = _ht(M[src], 2345 + p * 17)
+                if YW is not None:
+                    plane[8 * gecerli + 4] = _ht(YW[src], 3456 + p * 17)
+            f.write(plane.tobytes())
+            del plane
+    log(f"  blok yazi: 8 duzlem x {BLK} dongu, ters yon, akis bazli (buyuk dosya destekli)")
     log(f"  yazildi: {hedef} ({os.path.getsize(hedef):,} bayt)")
     return hedef

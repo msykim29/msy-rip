@@ -1,5 +1,5 @@
 {
-  "version": "1.0.18",
+  "version": "1.0.19",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Dither periyodu kaldirildi: her satir tamamen bagimsiz gurultuden kume esik uretilir (onceki 64 satirlik ~1mm periyot ufak bantlar + C/M deseni cakismasi dalgalanma yapiyordu). Ton tam korunur, komsu satir korelasyonu ~0.09 (PM19 ~0.05), hiz 0.24sn."
+  "notes": "Buyuk dosya destegi: satir sayisi 8e bolunmuyorsa otomatik pad; dikey tekrar + halftone + PRT yazimi artik duzlem duzlem AKISLA yapiliyor (np.repeat ve tam-planes dizisi kaldirildi — 1GB+ bellek kullanimi onlendi). 58x47cm test: 21sn, 1.1GB PRT, hata yok. Kucuk dosya dogrulamasi 24/24 uyum korundu."
 }
