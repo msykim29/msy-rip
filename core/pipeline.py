@@ -272,10 +272,11 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         W_ = kan.get('WHITE')
     if W_ is None:
         W_ = kan.get('W')
-    if Y is not None and W_ is not None:
-        YW = np.maximum(Y, W_)
-    else:
-        YW = Y if Y is not None else W_
+    # 17/11 v4 diagnostigi (saf renk cizgileri) ile olculdu:
+    #   slot1 = C, slot2 = M, slot3 = Y, slot4 = BEYAZ (SOLID, dithersiz!)
+    # ESKI HATA: Y'yi slot4'e (beyaz) gomustuk -> sari murekkep beyaz kanalda
+    #   basiliyor, sari eksik, renkler kayiyordu.
+    YW = None  # Y artik slot3'e; slot4 saf beyaz
     _hz = max(2, int(getattr(ayar, 'halftone_hucre', 5) or 5))
     _sev = max(2, int(ayar.halftone_seviye))
     _tur = str(getattr(ayar, 'halftone_tur', 'sofm') or 'sofm').lower()
@@ -310,8 +311,12 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     plane[8 * gecerli + 1] = _ht(C[src], 1234 + p * 17)
                 if M is not None:
                     plane[8 * gecerli + 2] = _ht(M[src], 2345 + p * 17)
-                if YW is not None:
-                    plane[8 * gecerli + 4] = _ht(YW[src], 3456 + p * 17)
+                if Y is not None:
+                    plane[8 * gecerli + 3] = _ht(Y[src], 3456 + p * 17)
+                if W_ is not None:
+                    # BEYAZ = SOLID (PM19 v4 olcumu: %100 kapsama, dithersiz)
+                    _w = (W_[src] > 0.5)
+                    plane[8 * gecerli + 4] = _w.astype('>u2') * 65535
             f.write(plane.tobytes())
             del plane
     log(f"  blok yazi: 8 duzlem x {BLK} dongu, ters yon, akis bazli (buyuk dosya destekli)")
