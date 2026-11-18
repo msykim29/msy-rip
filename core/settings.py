@@ -35,7 +35,7 @@ class Ayarlar:
     # 20/11 PM19 olcumu: C kaplamasi 6.9% vs kaynak ton 12.1% -> ~%60 ink limit.
     # Ayarlardan degistirilebilir; PM19 esdegeri icin 60 kullan.
     renk_yuzde: dict = field(default_factory=lambda: {
-        'C': 60, 'M': 60, 'Y': 60, 'K': 60, 'White': 100
+        'C': 95, 'M': 95, 'Y': 95, 'K': 95, 'White': 100
     })
 
     # 3) ICC profili

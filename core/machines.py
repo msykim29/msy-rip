@@ -17,7 +17,7 @@ MAKINELER = {
         "halftone_hucre": 5,
         "halftone_seviye": 4,
         "spot_adi": "Spot_1",
-        "renk_yuzde": {"C": 60, "M": 60, "Y": 60, "K": 60, "White": 100},
+        "renk_yuzde": {"C": 95, "M": 95, "Y": 95, "K": 95, "White": 100},
     },
     "JLHS600EPS3200 (DTF 8PASS)": {
         "aciklama": "JLHS600 EPS3200 DTF — 8 pass",
@@ -30,7 +30,7 @@ MAKINELER = {
         "halftone_hucre": 5,
         "halftone_seviye": 4,
         "spot_adi": "Spot_1",
-        "renk_yuzde": {"C": 60, "M": 60, "Y": 60, "K": 60, "White": 100},
+        "renk_yuzde": {"C": 95, "M": 95, "Y": 95, "K": 95, "White": 100},
     },
     "JLHS600EPS3200 (DTF 4PASS)": {
         "aciklama": "JLHS600 EPS3200 DTF — 4 pass",
@@ -43,7 +43,7 @@ MAKINELER = {
         "halftone_hucre": 5,
         "halftone_seviye": 4,
         "spot_adi": "Spot_1",
-        "renk_yuzde": {"C": 60, "M": 60, "Y": 60, "K": 60, "White": 100},
+        "renk_yuzde": {"C": 95, "M": 95, "Y": 95, "K": 95, "White": 100},
     },
     "Ozel (manuel ayarlar)": {
         "aciklama": "Tum parametreleri elle ayarla",
@@ -56,7 +56,7 @@ MAKINELER = {
         "halftone_hucre": 5,
         "halftone_seviye": 4,
         "spot_adi": "Spot_1",
-        "renk_yuzde": {"C": 60, "M": 60, "Y": 60, "K": 60, "White": 100},
+        "renk_yuzde": {"C": 95, "M": 95, "Y": 95, "K": 95, "White": 100},
     },
 }
 

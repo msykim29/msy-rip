@@ -225,34 +225,20 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         ad_norm = ad.strip()
         gri = _kanal_adi_to_index(ad_norm, cmyk)
         if gri is None:
-            # Spot / White kanalı
             gri16 = (spot.astype(np.float32) / 65535.0)  # 0..1 normalize
         else:
             gri16 = (gri.astype(np.float32) / 255.0)  # 0..1 normalize
         kanallar.append({'ad': ad_norm, 'gri': gri16})
+    # 18/11: K kanali ayri da tutulur (slot0 = K olcu ile kanitlandi)
+    if not any(k['ad'].strip().upper() == 'K' for k in kanallar) and cmyk.shape[2] >= 4:
+        kanallar.append({'ad': 'K', 'gri': cmyk[:, :, 3].astype(np.float32) / 255.0})
     # 17/11 PM19: goruntu YATAY AYNALI yazilir (DTF transfer icin)
     for _k in kanallar:
         _k['gri'] = _k['gri'][:, ::-1].copy()
     log(f"  ham kanal: {len(kanallar)} adet, yatay AYNALANDI (PM19 uyumlu)")
 
-    # 16/11/2026 MSY (PM19): makine 8 KANAL bekliyor.
-    # Kanal duzeni (karsilastirmadan): [C, M, Y, SPOT, SPOT, Y, M, C] mirror.
-    # Her renk iki kez yazilir (2 nozle grubu). PM19 ile ayni boyut/yapi.
-    _8ch = []
-    for _k in kanallar:
-        _8ch.append(_k)
-    while len(_8ch) < 8:
-        _8ch.append({'ad': '_', 'gri': np.zeros((h, w), dtype=np.float32)})
-    if getattr(ayar, 'mirror', True):
-        # 20/11 v8 OLCUMLE DUZELTILDI (PM19 capraz korelasyon, shift 0):
-        #   PM19: ch3=W, ch4=W, ch5=C, ch6=M, ch7=Y
-        #   => duzen [C, M, Y, W, W, C, M, Y] (beyaz ORTADA, ikinci CMY duz sira)
-        # Eski ters-mirror [..,Y,M,C] ikinci kafaya yanlis renk veriyordu.
-        _mir = [_8ch[0], _8ch[1], _8ch[2], _8ch[3],
-                _8ch[3], _8ch[0], _8ch[1], _8ch[2]]
-        kanallar = _mir
-    else:
-        kanallar = _8ch[:8]
+    # 18/11: ESKI 8-duzlem mirror yapisi KALDIRILDI — blok yazici
+    # kanallari ISIMLE aliyor (C, M, Y, K, Spot). K artik kaybolmuyor.
 
     # 17/11 FINAL: blok bazli yazici — dikey tekrar + halftone + PRT yazimi
     # tek geciste, duzlem duzlem akisla (buyuk dosyalar icin bellek dostu).
@@ -266,17 +252,22 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     if pad:
         log(f"  pad: {H_PRT} -> {H_PAD} satir (8'in kati, alt {pad} bos satir)")
     kan = {k['ad'].strip().upper(): k['gri'] for k in kanallar}
-    C = kan.get('C'); M = kan.get('M'); Y = kan.get('Y')
+    C = kan.get('C'); M = kan.get('M'); Y = kan.get('Y'); Kch = kan.get('K')
     W_ = kan.get('SPOT_1')
     if W_ is None:
         W_ = kan.get('WHITE')
     if W_ is None:
         W_ = kan.get('W')
-    # 17/11 v4 diagnostigi (saf renk cizgileri) ile olculdu:
-    #   slot1 = C, slot2 = M, slot3 = Y, slot4 = BEYAZ (SOLID, dithersiz!)
-    # ESKI HATA: Y'yi slot4'e (beyaz) gomustuk -> sari murekkep beyaz kanalda
-    #   basiliyor, sari eksik, renkler kayiyordu.
-    YW = None  # Y artik slot3'e; slot4 saf beyaz
+    # 18/11 v4 SAF RENK ANALIZI (renk-kelime ayrimi ile) — KANITLI HARITA:
+    #   slot0 = K  (siyah kare satir0'da dolu; CMY yok)
+    #   slot1 = C  (mavi C+M -> satir1; yesil C+Y -> satir1; saf cyan satir1)
+    #   slot2 = M  (kirmizi M+Y -> satir2; saf magenta satir2)
+    #   slot3 = Y  (saf yellow satir3; kirmizi satir3)
+    #   slot4 = W  (beyaz solid — tum digitler 2-3)
+    # ESKI v1.0.20 HARITASI (1=C 2=M 3=Y 4=W) DOGRUYDU ama K eksikti
+    #   ve nokta kelimeleri 65535 (tum banklar max) idi -> asiri doygun
+    #   'karisik' renkler. PM19 kelime stili: C=~%55 alt-kolon, M/Y/K=0x5555.
+    YW = None
     _hz = max(2, int(getattr(ayar, 'halftone_hucre', 5) or 5))
     _sev = max(2, int(ayar.halftone_seviye))
     _tur = str(getattr(ayar, 'halftone_tur', 'sofm') or 'sofm').lower()
@@ -298,6 +289,28 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             return halftone_kanal(ton, 'K', hucre=_hz)
         return halftone_sofm(ton, seed=seed, hucre=_hz)
 
+    _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)  # 1,4,16,...,16384
+
+    def _kelime(fired, tip, rng):
+        """PM19 kelime stili: 16-bit = 8x2-bit (720dpi alt-kolonlar).
+        C: her alt-kolon ~%55 ihtimalle kucuk nokta (PM19 cyan histogrami)
+        M/Y: 0x5555 + ~%15 upgrade (PM19 magenta/yellow)
+        K: 0x5555 + ~%4 upgrade (PM19 siyah)
+        W: 0xFFFF solid"""
+        fired = (fired > 0)
+        if tip == 'C':
+            w = np.zeros(fired.shape, dtype=np.uint32)
+            for d in range(8):
+                w += (rng.random(fired.shape) < 0.55) * _POZ[d]
+            return (w * fired).astype('>u2')
+        if tip == 'W':
+            return (fired.astype('>u2')) * np.uint16(65535)
+        up = 0.15 if tip in ('M', 'Y') else 0.04
+        w = np.full(fired.shape, 0x5555, dtype=np.uint32)
+        for d in range(8):
+            w += (rng.random(fired.shape) < up) * _POZ[d]
+        return (w * fired).astype('>u2')
+
     with open(hedef, 'wb') as f:
         f.write(baslik.tobytes())
         for p in range(8):
@@ -307,16 +320,17 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             gecerli = np.where(Ls < H_PRT)[0]
             src = np.clip(Ls[gecerli], 0, H_PRT - 1) // pass_s
             if len(gecerli):
+                if Kch is not None:
+                    plane[8 * gecerli + 0] = _kelime(_ht(Kch[src], 4567 + p * 17), 'K', np.random.default_rng(900 + p))
                 if C is not None:
-                    plane[8 * gecerli + 1] = _ht(C[src], 1234 + p * 17)
+                    plane[8 * gecerli + 1] = _kelime(_ht(C[src], 1234 + p * 17), 'C', np.random.default_rng(100 + p))
                 if M is not None:
-                    plane[8 * gecerli + 2] = _ht(M[src], 2345 + p * 17)
+                    plane[8 * gecerli + 2] = _kelime(_ht(M[src], 2345 + p * 17), 'M', np.random.default_rng(300 + p))
                 if Y is not None:
-                    plane[8 * gecerli + 3] = _ht(Y[src], 3456 + p * 17)
+                    plane[8 * gecerli + 3] = _kelime(_ht(Y[src], 3456 + p * 17), 'Y', np.random.default_rng(500 + p))
                 if W_ is not None:
-                    # BEYAZ = SOLID (PM19 v4 olcumu: %100 kapsama, dithersiz)
-                    _w = (W_[src] > 0.5)
-                    plane[8 * gecerli + 4] = _w.astype('>u2') * 65535
+                    # BEYAZ = SOLID 0xFFFF (PM19: tum digitler 2-3, dithersiz)
+                    plane[8 * gecerli + 4] = _kelime((W_[src] > 0.5).astype(np.uint16) * 65535, 'W', None)
             f.write(plane.tobytes())
             del plane
     log(f"  blok yazi: 8 duzlem x {BLK} dongu, ters yon, akis bazli (buyuk dosya destekli)")
