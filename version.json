@@ -1,5 +1,5 @@
 {
-  "version": "1.0.21",
+  "version": "1.0.22",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "RENK FORMATI TAM COZULDU (v4 saf renk analizi + kelime-formati decode): 16-bit piksel = 8x2-bit (720dpi alt-kolonlar). Gercek slot haritasi: slot0=K, slot1=C, slot2=M, slot3=Y, slot4=beyaz-solid. Eski surumde K hic yazilmiyor + noktalar 65535 (tum banklar max) idi -> asiri doygun karisik renkler. Artik PM19 kelime stili: C=~%55 alt-kolon kucuk nokta, M/Y/K=0x5555+upgrade, beyaz=0xFFFF solid. Kaplama %95 (PM19 ile ayni)."
+  "notes": "Bantlanma duzeltmesi: v1.0.21 rastgele alt-kolon kelimeleri (C icin %55 rastgele alt-kume) 225dpi olcekte bosluklar birakip gorunur cizgi-cizgi bantlanma yapiyordu. PM19 baskin kelimesi sabit 0x5555 (tum alt-pozisyonlar kucuk nokta) — artik CMYK noktalari SABIT 0x5555, beyaz 0xFFFF. Bosluk yok, bant yok."
 }

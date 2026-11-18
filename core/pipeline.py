@@ -289,27 +289,19 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             return halftone_kanal(ton, 'K', hucre=_hz)
         return halftone_sofm(ton, seed=seed, hucre=_hz)
 
-    _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)  # 1,4,16,...,16384
-
     def _kelime(fired, tip, rng):
-        """PM19 kelime stili: 16-bit = 8x2-bit (720dpi alt-kolonlar).
-        C: her alt-kolon ~%55 ihtimalle kucuk nokta (PM19 cyan histogrami)
-        M/Y: 0x5555 + ~%15 upgrade (PM19 magenta/yellow)
-        K: 0x5555 + ~%4 upgrade (PM19 siyah)
-        W: 0xFFFF solid"""
+        """PM19 kelime stili (18/11 v2 — bantlanma duzeltmesi):
+        16-bit = 8x2-bit. PM19'un BASKIN kelimesi 0x5555 (tum alt-pozisyonlar
+        kucuk nokta) — orn. K satirinda 17857/24840 kelime TAM 0x5555.
+        v1.0.21'deki RASTGELE alt-kume kelimeler 225dpi olcekte bosluklar
+        birakip 'cizgi cizgi' bantlanma yapiyordu. Artik:
+          C/M/Y/K noktasi -> SABIT 0x5555 (eksiksiz kucuk nokta, bosluk yok)
+          Beyaz -> 0xFFFF solid
+        Ton kontrolu halftone yogunlugundan geliyor."""
         fired = (fired > 0)
-        if tip == 'C':
-            w = np.zeros(fired.shape, dtype=np.uint32)
-            for d in range(8):
-                w += (rng.random(fired.shape) < 0.55) * _POZ[d]
-            return (w * fired).astype('>u2')
         if tip == 'W':
             return (fired.astype('>u2')) * np.uint16(65535)
-        up = 0.15 if tip in ('M', 'Y') else 0.04
-        w = np.full(fired.shape, 0x5555, dtype=np.uint32)
-        for d in range(8):
-            w += (rng.random(fired.shape) < up) * _POZ[d]
-        return (w * fired).astype('>u2')
+        return (np.uint32(0x5555) * fired).astype('>u2')
 
     with open(hedef, 'wb') as f:
         f.write(baslik.tobytes())
