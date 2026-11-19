@@ -1,5 +1,5 @@
 {
-  "version": "1.0.23",
+  "version": "1.0.24",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Renkli baski dalgalanma duzeltmesi (PM19 kelime olcumu): 2-bit gruplar DIKEY ALT-SATIR noktalari. PM19 cyan icin piksel basina 1-2 alt-satir (kelimeler 64/4096/16 gibi tek-digit), magenta/yellow/K icin 8 alt-satir dolu (0x5555), beyaz 0xFFFF. v1.0.22 tum renklere 0x5555 verdigi icin CYAN 4-5 kat fazla murekkep alip dalgali/karisik basiyordu."
+  "notes": "DALGALANMA DUZELTMESI (Gemini teshisi + foto analizi): halftone artik satir-bagimsiz 1D gurultu yerine 512x512 2D kumeli maske kullaniyor (komsu satir korelasyonu 0.85-0.92). 1D dither dikeyde iliski birakmadigi icin baski dalgali gorunuyordu. Her murekkep maskede farkli kaydirma kullaniyor (C/M/Y desenleri cakismaz)."
 }

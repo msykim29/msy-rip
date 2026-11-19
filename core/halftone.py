@@ -151,3 +151,62 @@ def halftone_sofm(gri: np.ndarray, seed: int = 1234,
     np.put_along_axis(esik, siralama, np.broadcast_to(satir_deger, (h, w)), axis=1)
     ton = gri.astype(np.float32) / 65535.0
     return (ton > esik).astype(np.uint16) * 65535
+
+
+# ---------------------------------------------------------------------------
+# 2D KUMELI ESIK (19/11 — dalgalanma duzeltmesi)
+# Satir bagimsiz (1D) gurultu dikeyde iliski birakmadigindan baskida "dalgali"
+# gorunum olusuyordu (Gemini + foto analizi). Bu surum 512x512 2D maske uretir:
+#   - gurultu 2D bulaniklastirilir (sigma ~2) -> kumeli taneler
+#   - rank siralamasi -> uniform esik, ton birebir korunur
+#   - 512 satirlik periyot = 7.2mm @1800dpi (gorunmez olcekte)
+# ---------------------------------------------------------------------------
+
+_TILE2D = {}
+
+
+def _tile2d(tur=512, sigma=2.0, seed=1234):
+    anahtar = (tur, sigma, seed)
+    if anahtar in _TILE2D:
+        return _TILE2D[anahtar]
+    rng = np.random.default_rng(seed)
+    n = rng.random((tur, tur)).astype(np.float32)
+    # dongusel 2D gaussian blur (FFT ile hizli)
+    k = int(sigma * 4) | 1
+    ax = np.arange(-k // 2, k // 2 + 1).astype(np.float32)
+    g = np.exp(-(ax ** 2) / (2 * sigma * sigma))
+    g /= g.sum()
+    # ayrik 2D konvolusyon: once x, sonra y (wrap)
+    n2 = np.apply_along_axis(
+        lambda r: np.fft.ifft(np.fft.fft(r) * np.fft.fft(np.roll(g, -k // 2), n=r.size)).real,
+        1, n)
+    n2 = np.apply_along_axis(
+        lambda c: np.fft.ifft(np.fft.fft(c) * np.fft.fft(np.roll(g, -k // 2), n=c.size)).real,
+        0, n2)
+    # rank -> uniform
+    sirali = np.argsort(n2.ravel())
+    t = np.empty(n2.size, dtype=np.float32)
+    t[sirali] = np.linspace(0.0, 1.0, n2.size, dtype=np.float32)
+    t = t.reshape(tur, tur)
+    _TILE2D[anahtar] = t
+    return t
+
+
+def halftone_2d(gri, seed=1234, sigma=2.0, ofs_x=0, ofs_y=0):
+    """2D kumeli stokastik halftone (dalgasiz). Donus: uint16 0/65535.
+
+    ofs_x/ofs_y: farkli murekkepler icin maskeyi kaydir (C/Y cakismasin).
+    """
+    from numpy import asarray
+    g = asarray(gri)
+    if g.ndim != 2:
+        raise ValueError("2 boyutlu gri goruntu beklenir")
+    h, w = g.shape
+    t = _tile2d(512, float(sigma), int(seed))
+    ty, tx = t.shape
+    # kaydirilmis + kenar tamamlanmis esik
+    ys = (np.arange(h) + int(ofs_y)) % ty
+    xs = (np.arange(w) + int(ofs_x)) % tx
+    esik = t[np.ix_(ys, xs)]
+    ton = g.astype(np.float32) / 65535.0
+    return (ton > esik).astype(np.uint16) * 65535

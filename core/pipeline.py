@@ -287,7 +287,15 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             return ton
         if _tur == 'am':
             return halftone_kanal(ton, 'K', hucre=_hz)
-        return halftone_sofm(ton, seed=seed, hucre=_hz)
+        if _tur == '1d':
+            # eski satir-bagimsiz dither (dalgali baski riski)
+            return halftone_sofm(ton, seed=seed, hucre=_hz)
+        # 19/11 v4: 2D kumeli maske (dalgasiz). Her murekkep kendi kaydirmasiyla
+        # -> C/M/Y desenleri cakismaz (interference yok).
+        from .halftone import halftone_2d
+        ofs = {1234: 0, 2345: 128, 3456: 256, 4567: 384}  # kanal bazli kaydirma
+        base = min(ofs, key=lambda k: abs(k - seed))
+        return halftone_2d(ton, seed=777, sigma=2.0, ofs_x=ofs.get(base, 0), ofs_y=ofs.get(base, 0))
 
     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
 
