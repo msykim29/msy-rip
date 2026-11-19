@@ -289,19 +289,42 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             return halftone_kanal(ton, 'K', hucre=_hz)
         return halftone_sofm(ton, seed=seed, hucre=_hz)
 
+    _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
+
     def _kelime(fired, tip, rng):
-        """PM19 kelime stili (18/11 v2 — bantlanma duzeltmesi):
-        16-bit = 8x2-bit. PM19'un BASKIN kelimesi 0x5555 (tum alt-pozisyonlar
-        kucuk nokta) — orn. K satirinda 17857/24840 kelime TAM 0x5555.
-        v1.0.21'deki RASTGELE alt-kume kelimeler 225dpi olcekte bosluklar
-        birakip 'cizgi cizgi' bantlanma yapiyordu. Artik:
-          C/M/Y/K noktasi -> SABIT 0x5555 (eksiksiz kucuk nokta, bosluk yok)
-          Beyaz -> 0xFFFF solid
-        Ton kontrolu halftone yogunlugundan geliyor."""
+        """PM19 kelime stilleri (19/11 v3 — GERCEK OLCUM, v4 saf renk):
+        16-bit = 8 x 2-bit; her 2-bit grup bir DIKEY ALT-SATIR nokta boyutu.
+
+        PM19 olculen kelime dagilimlari (v4 dosyasi):
+          CYAN   : cogu TEK-digit (64, 4096, 16, 4...) -> piksel basina 1-2
+                   alt-satir (%19-25 yogunluk). Yani cyan murekkebi GUCLU,
+                   PM19 onu seyrek alt-satirla basiyor.
+          MAGENTA: 0x5555 (%24) + tek-digit-2 varyantlari -> 8 alt-satirin
+                   HEPSI dolu, kucuk nokta.
+          YELLOW : ayni magentada gibi (0x5555 baskin).
+          K      : 0x5555 (%72) + seyrek upgrade.
+          BEYAZ  : 0xFFFF (tum digitler 3).
+
+        v1.0.22 HATASI: tum renklere 0x5555 veriyordum -> CYAN 4-5 kat fazla
+        murekkep aliyordu (yesil/mavi tonlar dalgali-karisik gorunuyordu)."""
         fired = (fired > 0)
         if tip == 'W':
             return (fired.astype('>u2')) * np.uint16(65535)
-        return (np.uint32(0x5555) * fired).astype('>u2')
+        if tip == 'C':
+            # cyan: piksel basina 1-2 alt-satir (PM19 olcumu)
+            d1 = rng.integers(0, 8, size=fired.shape)
+            w = _POZ[d1]
+            # ~%25 piksellede ikinci alt-satir (272/16400 gibi cift-digit kelimeler)
+            d2 = rng.integers(0, 8, size=fired.shape)
+            ikinci = (rng.random(fired.shape) < 0.25) & (d2 != d1)
+            w = w + np.where(ikinci, _POZ[d2], 0)
+            return (w * fired).astype('>u2')
+        # M / Y / K: 0x5555 + seyrek tek-digit-2 upgrade
+        up = 0.15 if tip in ('M', 'Y') else 0.04
+        w = np.full(fired.shape, 0x5555, dtype=np.uint32)
+        for d in range(8):
+            w += (rng.random(fired.shape) < up) * _POZ[d]
+        return (w * fired).astype('>u2')
 
     with open(hedef, 'wb') as f:
         f.write(baslik.tobytes())
