@@ -1,5 +1,5 @@
 {
-  "version": "1.0.29",
+  "version": "1.0.30",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "43 printer profile: Gongzheng (DX/X5/X5113/UV), AllWin/Allen 320, YongLi, ZhongYe, ChiTing, CJET, SID Signs, DGI, Mimaki, Mutoh, Roland, Matan, Neolt, Astro, Azero, Grapo and the existing JLHS600 EPS3200 4/6/8 pass options."
+  "notes": "Colour density fix: separate halftone stage removed (tone is encoded in the 16-bit word, applying halftone on top multiplied the tone = washed out + lost detail). Real tone now reaches the print head. Spot layering order corrected so white is generated from the raw channels."
 }

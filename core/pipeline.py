@@ -167,10 +167,16 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # 1) TIF'in gomulu profili (etiket 34675)
                     try:
                         import tifffile as _tf2
+                        _iccp_bytes = None
                         with _tf2.TiffFile(tif_yolu) as _t2:
                             _tag = _t2.pages[0].tags.get(34675)
-                        if _tag is not None and getattr(_tag, 'value', None):
-                            _src = _IC.ImageCmsProfile(io.BytesIO(_tag.value))
+                            if _tag is not None:
+                                try:
+                                    _iccp_bytes = _tag.value   # dosya acikken al
+                                except Exception:
+                                    _iccp_bytes = None
+                        if _iccp_bytes:
+                            _src = _IC.ImageCmsProfile(io.BytesIO(_iccp_bytes))
                     except Exception:
                         _src = None
                     # 2) yoksa eski yol (PIL info)
@@ -222,20 +228,11 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # 17/11 PM19: siyah = zengin siyah (C+M+Y). K kanali yazilmadiginda
     # K murekkebi C/M/Y'ye dagitilir (undercolor), yoksa siyah cizgiler
     # sadece beyaz katta kalir.
-    _k_yazili = any(str(_ad).strip().upper() == 'K' for _ad in ayar.kanal_sirasi)
-    if not _k_yazili and cmyk.shape[2] >= 4:
-        _K = cmyk[:, :, 3]
-        cmyk = cmyk.copy()
-        for _i in range(3):
-            cmyk[:, :, _i] = np.maximum(cmyk[:, :, _i], _K)
-        log("  siyah: K -> C+M+Y dagitildi (zengin siyah)")
-
-    # 2) Renk yüzdeleri
-    yzd = ayar.renk_yuzde
-    for i, ad in enumerate(('C', 'M', 'Y', 'K')):
-        p = float(yzd.get(ad, 100)) / 100.0
-        if p != 1.0:
-            cmyk[:, :, i] = np.clip(cmyk[:, :, i].astype(np.float32) * p, 0, 255).astype(np.uint8)
+    # 20/11 SIRA DUZELTMESI (MSY: "renkler yine soluk"): K dagitimi ve renk
+    # yuzdeleri ONCEDEN burada (spot'tan once) yapiliyordu; sonuc: beyaz katman
+    # tonlanmis C/M/Y'den uretiliyor ve renk kanallari kayboluyordu.
+    # Artik once spot HAM kanallardan uretilir, sonra K dagitimi + yuzdeler
+    # uygulanir -> asagida "3b" bolumu.
 
     # 3) Spot katmanı
     # 16/11 v2: PM19 davranisi — 6 kanalli TIF'de ALPHA kanalindan spot uretilir.
@@ -270,6 +267,23 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # duzgun olcekluyor, SONRA ~5px hucreli ekran uyguluyor (satir korelasyonu:
     # corr(j,j+5)=0.87, corr(j,j+1)=0.05). Bizde halftone 300dpi'de yapilip
     # sonra LANCZOS ile 6x uzatiliyordu -> noktalar simsiyah cizgiye donusuyor.
+    # 3b) K dagitimi + renk yuzdeleri (spot artik HAM kanallardan uretildi)
+    _k_yazili = any(str(_ad).strip().upper() == 'K' for _ad in ayar.kanal_sirasi)
+    if not _k_yazili and cmyk.shape[2] >= 4:
+        _K = cmyk[:, :, 3]
+        cmyk = cmyk.copy()
+        for _i in range(3):
+            cmyk[:, :, _i] = np.maximum(cmyk[:, :, _i], _K)
+        log("  siyah: K -> C+M+Y dagitildi (zengin siyah)")
+    yzd = ayar.renk_yuzde
+    for i, ad in enumerate(('C', 'M', 'Y', 'K')):
+        p = float(yzd.get(ad, 100)) / 100.0
+        if p != 1.0:
+            cmyk[:, :, i] = np.clip(cmyk[:, :, i].astype(np.float32) * p, 0, 255).astype(np.uint8)
+    if any(float(yzd.get(k, 100)) != 100.0 for k in ('C', 'M', 'Y', 'K')):
+        log("  renk yuzdeleri uygulandi: " + ", ".join(
+            f"{k}=%{float(yzd.get(k, 100)):.0f}" for k in ('C', 'M', 'Y', 'K')))
+
     hucre = max(2, int(ayar.halftone_hucre))   # PRT pikselinde hucre (PM19: ~5)
     sev = max(2, int(ayar.halftone_seviye))
     kanallar = []
@@ -287,6 +301,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # 17/11 PM19: goruntu YATAY AYNALI yazilir (DTF transfer icin)
     for _k in kanallar:
         _k['gri'] = _k['gri'][:, ::-1].copy()
+        _k['gri'] = np.where(_k['gri'] < 1e-4, 0.0, _k['gri']).astype(np.float32)
     log(f"  ham kanal: {len(kanallar)} adet (yatay aynalandi)")
 
     # 18/11: ESKI 8-duzlem mirror yapisi KALDIRILDI — blok yazici
@@ -329,25 +344,17 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     ad = os.path.splitext(os.path.basename(tif_yolu))[0]
     hedef = os.path.join(cikis, f"{ad}.prt")
     sb = W_PRT * 2
+    # 20/11: blok formulu PM19 olcumuyle ayni (satir_bayt*4-28)
     blok_alan = {3808: 15204, 4112: 16440}.get(sb, sb * 4 - 28)
     baslik = np.array([0x5555, int(ayar.prt_genislik), int(ayar.prt_yukseklik),
                        sb, H_PAD, blok_alan, 0, 8, 2, 0, 0, 0], dtype='<u4')
 
-    def _ht(rows_f, seed):
-        ton = (rows_f.clip(0.0, 1.0) * 65535.0).astype(np.uint16)
-        if _sev <= 2:
-            return ton
-        if _tur == 'am':
-            return halftone_kanal(ton, 'K', hucre=_hz)
-        if _tur == '1d':
-            # eski satir-bagimsiz dither (dalgali baski riski)
-            return halftone_sofm(ton, seed=seed, hucre=_hz)
-        # 19/11 v4: 2D kumeli maske (dalgasiz). Her murekkep kendi kaydirmasiyla
-        # -> C/M/Y desenleri cakismaz (interference yok).
-        from .halftone import halftone_2d
-        ofs = {1234: 0, 2345: 128, 3456: 256, 4567: 384}  # kanal bazli kaydirma
-        base = min(ofs, key=lambda k: abs(k - seed))
-        return halftone_2d(ton, seed=777, sigma=2.0, ofs_x=ofs.get(base, 0), ofs_y=ofs.get(base, 0))
+    # 20/11 v7 (MSY: "cozunurluk cok dusuyor"): Ayri halftone katmani KALDIRILDI.
+    # 16-bit kelime zaten ton kodluyor; ustune halftone uygulaninca ton x ton
+    # carpiliyordu -> gercek ton 0.17-0.52 iken baski 0.11 cikiyordu (SOLUK +
+    # NOKTALI/COZUNURSUZ gorunum).
+    def _ht(rows_f, seed=0):
+        return (rows_f.clip(0.0, 1.0) * 65535.0).astype(np.uint16)
 
     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
 
@@ -361,21 +368,22 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         Digit secimi x'e gore kaydirilir (kosegen desen) -> dikey bant olusmaz.
         """
         t = np.clip(np.asarray(ton, dtype=np.float32), 0.0, 1.0)
-        # 20/11: PM19 olcumu — dolu renklerde ortalama 6.8-7.1/8 digit (ink limit ~%86)
-        _lim = float(getattr(ayar, 'murekkep_limiti', 0.86) or 0.86)
-        n = np.rint(t * 8.0 * _lim).astype(np.int32)    # 0..8 alt-satir
-        # 20/11 v6: digit secimi RASTGELE (PM19 gibi) — kosegen desen DIKEY CIZGI
-        # birakiyordu. Her piksel icin bagimsiz rastgele digit kumesi.
+        t = np.where(t < 1e-4, 0.0, t).astype(np.float32)   # tam sifir -> bos
+        # 20/11 v7: gercek ton x 8 = dolu alt-satir sayisi (ayri halftone YOK)
+        _lim = float(getattr(ayar, 'murekkep_limiti', 1.0) or 1.0)
+        t8 = np.clip(t * _lim * 8.0, 0.0, 8.0)
+        n = np.floor(t8).astype(np.int32)               # tam dolu alt-satir
+        pay = (np.random.default_rng(abs(hash((int(x0), 7))) % (2**31))
+               .random(t.shape) < (t8 - n))
+        n = n + pay.astype(np.int32)                    # kesirli kisim olasiliksal
+        n = np.clip(n, 0, 8)
+        # digit secimi RASTGELE (PM19 gibi) — kosegen desen DIKEY CIZGI birakiyordu
         rng = np.random.default_rng(int(x0) * 7919 + 13)
         w = np.zeros(t.shape, dtype=np.uint32)
         for d in range(8):
             r = rng.random(t.shape)
-            # n/8 oraninda dolu; n=8 -> hepsi dolu (0x5555), n<8 -> rastgele secim
             mask = r < (n / 8.0)
             w += mask.astype(np.uint32) * _POZ[d]
-        if tip == 'W':
-            # beyaz: her zaman tam (0xFFFF)
-            return (np.full(t.shape, 65535, dtype=np.uint32)).astype('>u2')
         return w.astype('>u2')
 
     with open(hedef, 'wb') as f:
@@ -385,7 +393,9 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             plane = np.zeros((H_PAD, W_PRT), dtype='>u2')
             Ls = blok_alt - 1 - np.arange(BLK)            # ters yon
             gecerli = np.where(Ls < H_PRT)[0]
+            # 20/11: blok p, dosya ici [p*BLK,(p+1)*BLK) araligini ters yazar.
             src = np.clip(Ls[gecerli], 0, H_PRT - 1) // pass_s
+
             if len(gecerli):
                 # 20/11 v5: HALFTONE YOK — ton dogrudan kelimeye kodlaniyor
                 if Kch is not None:
@@ -397,10 +407,21 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                 if Y is not None:
                     plane[8 * gecerli + 3] = _kelime_ton(Y[src], 'Y', x0=p * 7)
                 if W_ is not None:
-                    _wm = (W_[src] > 0.5)
-                    plane[8 * gecerli + 4] = (_wm.astype(np.uint32) * 65535).astype('>u2')
+                    # 20/11: beyaz katman = alt-satir 4k+4, blok p icin mutlak
+                    # konum 8k + 8p + 7 (olcumle dogrulandi). ONCEDEN 8k+4p+4
+                    # kullaniliyordu -> ilk blokta +4, son blokta satir kaybi.
+                    _w2 = np.asarray(W_[src], dtype=np.float32).reshape(-1, W_PRT)
+                    _idx = 8 * np.arange(_w2.shape[0], dtype=np.intp) + 8 * p + 7
+                    _idx = _idx[_idx < H_PAD]
+                    _sel = _w2[:_idx.shape[0]]
+                    plane[_idx] = ((_sel > 0.5).astype(np.uint32)
+                                   * np.uint32(65535)).astype('>u2')
+
             f.write(plane.tobytes())
             del plane
+    if W_ is not None:
+        log(f"  beyaz katman: kapsama %{float((W_ > 0).mean()) * 100:.1f}, "
+            f"tepe {float(W_.max()):.2f}")
     log(f"  yazim: 8 duzlem x {BLK} dongu (akis bazli)")
     log(f"  yazildi: {hedef} ({os.path.getsize(hedef):,} bayt)")
     return hedef
