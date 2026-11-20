@@ -34,14 +34,17 @@ class Ayarlar:
     # 2) Renk yüzdeleri
     # 20/11 PM19 olcumu: C kaplamasi 6.9% vs kaynak ton 12.1% -> ~%60 ink limit.
     # Ayarlardan degistirilebilir; PM19 esdegeri icin 60 kullan.
+    # 20/11 MSY: renkler %100 — soluk baski sorunu (kisisel profil kullanilirsa
+    # dogru doygunluk bu sekilde elde edilir; ayarlardan dusurulebilir).
     renk_yuzde: dict = field(default_factory=lambda: {
-        'C': 95, 'M': 95, 'Y': 95, 'K': 95, 'White': 100
+        'C': 100, 'M': 100, 'Y': 100, 'K': 100, 'White': 100
     })
 
-    # 3) ICC profili
-    icc_yol: str = ''
+    # 3) ICC profili — ilk kurulumda uygulamayla gelen varsayilan profil
+    icc_yol: str = 'Renk Profili.icc'
     icc_intent: str = 'Perceptual'
     icc_bpc: bool = True
+    icc_cmyk_donusum: bool = True   # CMYK TIF'lerde de renk profilini uygula
 
     # 4) Spot ismi
     spot_adi: str = 'Spot_1'
@@ -55,7 +58,8 @@ class Ayarlar:
     # Ek: halftone
     halftone_hucre: int = 5      # nokta hücresi, PRT pikseli (PM19 ~5px @1800dpi)
     halftone_seviye: int = 4     # 2 veya 4
-    halftone_tur: str = 'sofm'   # 'sofm' (PM19 benzeri stokastik kume) veya 'am' (acili)
+    halftone_tur: str = 'sofm'   # kullanilmiyor (ton kodlama) — eski ayarlarla uyum
+    murekkep_limiti: float = 1.0   # 0..1 — ton->nokta cevriminde tepe doygunluk
 
     # 16/11/2026: makine profili
     makine: str = ''             # core/machines.py MAKINELER anahtarı
@@ -115,13 +119,28 @@ class Ayarlar:
 
 def profil_klasoru() -> str:
     """Uygulama yanindaki 'profiles' klasoru (kurulum klasoru).
-    Paketlenmis exe'te: C:\\MSYRip\\profiles gibi."""
+    Paketlenmis exe'te: C:\\MSYRip\\profiles gibi.
+
+    20/11: ilk calismada uygulamayla gelen varsayilan profil(ler)
+    resources/profiles -> profiles klasorune kopyalanir.
+    """
     if getattr(sys, 'frozen', False):
         base = os.path.dirname(sys.executable)
+        kaynak = os.path.join(getattr(sys, '_MEIPASS', base), 'resources', 'profiles')
     else:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        kaynak = os.path.join(base, 'resources', 'profiles')
     d = os.path.join(base, 'profiles')
     os.makedirs(d, exist_ok=True)
+    try:
+        if os.path.isdir(kaynak):
+            for _ad in os.listdir(kaynak):
+                _hedef = os.path.join(d, _ad)
+                if not os.path.exists(_hedef):
+                    import shutil
+                    shutil.copy2(os.path.join(kaynak, _ad), _hedef)
+    except Exception:
+        pass
     return d
 
 

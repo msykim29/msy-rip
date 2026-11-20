@@ -37,7 +37,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=_binaries,
-    datas=[],
+    datas=[('resources/profiles/Renk Profili.icc', 'resources/profiles')],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

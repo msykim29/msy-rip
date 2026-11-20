@@ -1,5 +1,5 @@
 {
-  "version": "1.0.27",
+  "version": "1.0.28",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Documentation update: English README, tested-on note added, internal benchmark references removed from user-facing messages."
+  "notes": "Renkler varsayilan %100 (soluk baski giderildi). CMYK TIFlerde de renk profili uygulanir (TIF gomulu profil -> yuklenen yazici profili). Ilk kurulumda Renk Profili.icc varsayilan olarak gelir ve profiles klasorune otomatik kopyalanir. Ayarlara Renk doygunlugu kaydiricisi eklendi (%50-120)."
 }

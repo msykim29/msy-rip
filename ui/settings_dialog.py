@@ -103,6 +103,21 @@ class AyarlarPenceresi(QDialog):
             f2.addRow(ad, sb)
         v.addWidget(g2)
 
+        # 2b) Genel renk doygunlugu (tum renkleri birlikte olcekler)
+        from PyQt6.QtWidgets import QSlider
+        from PyQt6.QtCore import Qt as _Qt
+        g2b = QGroupBox("2b) Renk doygunlugu (tum renkler)")
+        h2b = QHBoxLayout(g2b)
+        self.doygun_slider = QSlider(_Qt.Orientation.Horizontal)
+        self.doygun_slider.setRange(50, 120)
+        self.doygun_slider.setValue(int(round(float(getattr(self.ayar, 'murekkep_limiti', 1.0)) * 100)))
+        self.doygun_lbl = QLabel(f"%{self.doygun_slider.value()}")
+        self.doygun_slider.valueChanged.connect(
+            lambda v: self.doygun_lbl.setText(f"%{v}"))
+        h2b.addWidget(self.doygun_slider, 1)
+        h2b.addWidget(self.doygun_lbl)
+        v.addWidget(g2b)
+
         # 3) ICC profili
         g3 = QGroupBox("3) Renk profili (ICC)")
         h3 = QHBoxLayout(g3)
@@ -232,6 +247,7 @@ class AyarlarPenceresi(QDialog):
             return
         self.ayar.kanal_sirasi = kanallar
         self.ayar.renk_yuzde = {k: sb.value() for k, sb in self.yuzde.items()}
+        self.ayar.murekkep_limiti = self.doygun_slider.value() / 100.0
         self.ayar.icc_yol = self.icc_edit.text().strip()
         self.ayar.spot_adi = self.spot_edit.text().strip() or 'Spot_1'
         self.ayar.pass_sayisi = int(self.pass_spin.value())

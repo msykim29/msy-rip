@@ -12,6 +12,7 @@ Akış (MSY spesifikasyonu):
 """
 from __future__ import annotations
 
+import io
 import os
 
 import numpy as np
@@ -152,7 +153,58 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             _alh = _ham[:, :, 4] > 127
             if not _alh.all():
                 cmyk[~_alh] = 0
-        log("  CMYK: TIF kanallarindan dogrudan okundu")
+        # 20/11 MSY: renk profili yukleyen kullanici icin CMYK kaynagi da
+        # profil uzerinden donusturulur (kaynak = TIF'in gomulu profili veya
+        # varsayilan CMYK; hedef = kullanicinin yukledigi yazici profili).
+        _profil_donusum = False
+        if ayar.icc_yol and getattr(ayar, 'icc_cmyk_donusum', True):
+            try:
+                from core.settings import ayarlar_profil_yolu
+                _dst_yol = ayarlar_profil_yolu(ayar.icc_yol)
+                if _dst_yol and os.path.exists(_dst_yol):
+                    from PIL import Image as _PILC, ImageCms as _IC
+                    _src = None
+                    # 1) TIF'in gomulu profili (etiket 34675)
+                    try:
+                        import tifffile as _tf2
+                        with _tf2.TiffFile(tif_yolu) as _t2:
+                            _tag = _t2.pages[0].tags.get(34675)
+                        if _tag is not None and getattr(_tag, 'value', None):
+                            _src = _IC.ImageCmsProfile(io.BytesIO(_tag.value))
+                    except Exception:
+                        _src = None
+                    # 2) yoksa eski yol (PIL info)
+                    if _src is None:
+                        try:
+                            with _PILC.open(tif_yolu) as _im:
+                                _iccp = _im.info.get('icc_profile')
+                            if _iccp:
+                                _src = _IC.ImageCmsProfile(io.BytesIO(_iccp))
+                        except Exception:
+                            _src = None
+                    # 3) hala yoksa: hedef profilin kendisi (CMYK->CMYK, sadece
+                    # lineerizasyon/duzeltme uygular), en son sRGB
+                    if _src is None:
+                        try:
+                            _kaynak_uzayi = _IC.getOpenProfile(_dst_yol).profile.xcolor_space
+                            _src = _IC.getOpenProfile(_dst_yol) if _kaynak_uzayi == 'CMYK' \
+                                else _IC.createProfile('sRGB')
+                        except Exception:
+                            _src = _IC.createProfile('sRGB')
+                    _dst = _IC.getOpenProfile(_dst_yol)
+                    _img = _PILC.fromarray(cmyk, mode='CMYK')
+                    _flags = _IC.Flags.BLACKPOINTCOMPENSATION if ayar.icc_bpc else _IC.Flags.NONE
+                    _out = _IC.profileToProfile(
+                        _img, _src, _dst,
+                        renderingIntent=_IC.Intent.PERCEPTUAL,
+                        outputMode='CMYK',
+                        flags=_flags)
+                    cmyk = np.array(_out, dtype=np.uint8).copy()
+                    _profil_donusum = True
+            except Exception as _ie:
+                log(f"  ICC (CMYK) donusum atlandi: {str(_ie)[:60]}")
+        log("  CMYK: TIF kanallarindan okundu"
+            + (" + renk profili uygulandi" if _profil_donusum else ""))
     else:
         rgb = rgba[:, :, :3]
         cmyk = icc_mod.rgb_to_cmyk(
