@@ -1,5 +1,5 @@
 {
-  "version": "1.0.28",
+  "version": "1.0.29",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Renkler varsayilan %100 (soluk baski giderildi). CMYK TIFlerde de renk profili uygulanir (TIF gomulu profil -> yuklenen yazici profili). Ilk kurulumda Renk Profili.icc varsayilan olarak gelir ve profiles klasorune otomatik kopyalanir. Ayarlara Renk doygunlugu kaydiricisi eklendi (%50-120)."
+  "notes": "43 printer profile: Gongzheng (DX/X5/X5113/UV), AllWin/Allen 320, YongLi, ZhongYe, ChiTing, CJET, SID Signs, DGI, Mimaki, Mutoh, Roland, Matan, Neolt, Astro, Azero, Grapo and the existing JLHS600 EPS3200 4/6/8 pass options."
 }

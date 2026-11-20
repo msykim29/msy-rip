@@ -60,6 +60,88 @@ MAKINELER = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# 20/11/2026: PM19'un makine tanim dosyalarindaki TUM modeller eklendi.
+# Gongzheng: /tmp/AmGZBKDes.xml (Signature 0x5555, ColorOrder 2, HeadStruct 1)
+# Uretici listesi: Ditherparams.xml (AllWin, Mimaki, Mutoh, Roland, Epson, ...)
+#
+# NOT: PM19'da sadece model ADI ve cozunurluk secenekleri var; pass sayisi ve
+# bant genisligi yazici DLL'inde kilitli. Bu yuzden varsayilan olarak dikey
+# 1800 dpi + 6 pass + otomatik bant genisligi kullanilir. Kullanici kendi
+# makinesinde test edip sonucu bildirdikce ilgili profil guncellenir.
+# ---------------------------------------------------------------------------
+
+_DTF_VARSAYILAN = {
+    "kanal_sirasi": ["C", "M", "Y", "Spot_1"],
+    "mirror": True,
+    "pass_sayisi": 6,
+    "prt_bant_px": 0,
+    "prt_genislik": 720,
+    "prt_yukseklik": 1800,
+    "halftone_hucre": 5,
+    "halftone_seviye": 4,
+    "spot_adi": "Spot_1",
+    "renk_yuzde": {"C": 100, "M": 100, "Y": 100, "K": 100, "White": 100},
+}
+
+# (gorunen ad, uretici grubu, dikey dpi, not)
+_EK_MODELLER = [
+    # --- Gongzheng (DTF / rulo) ---
+    ("Gongzheng GZBK-DX5 (DTF)",            "Gongzheng", 1080, "PM19 modeli"),
+    ("Gongzheng GZBK-DX7 (DTF)",            "Gongzheng", 1080, "PM19 modeli"),
+    ("Gongzheng GZBK-DX10 (DTF)",           "Gongzheng", 1080, "PM19 modeli"),
+    ("Gongzheng GZBK-DX5113 (DTF)",         "Gongzheng", 1800, "PM19 modeli"),
+    ("Gongzheng GZBK-X5 (DTF)",             "Gongzheng", 1080, "PM19 modeli"),
+    ("Gongzheng GZBK-XP600-4C (DTF)",       "Gongzheng", 1080, "XP600 kafa"),
+    ("Gongzheng GZBK-A3-3452 (DTF A3)",     "Gongzheng", 1080, "A3 masaustu"),
+    ("Gongzheng GZBK-BJBK-DX5-7",           "Gongzheng", 1080, "BJBK serisi"),
+    ("Gongzheng GZBK-BJBK-DX1201",          "Gongzheng", 1800, "BJBK serisi"),
+    ("Gongzheng GZBK-BJBK-DX5113-4720",     "Gongzheng", 1200, "BJBK serisi"),
+    ("Gongzheng GZBK-BJBK-JINDIE",          "Gongzheng", 1200, "BJBK serisi"),
+    # --- Gongzheng UV ---
+    ("Gongzheng GZBK-UV-DX5",               "Gongzheng UV", 1080, "UV, 8 kafa"),
+    ("Gongzheng GZBK-UV-DX7",               "Gongzheng UV", 1080, "UV, 8 kafa"),
+    ("Gongzheng GZBK-UV-DX10",              "Gongzheng UV", 1080, "UV, 8 kafa"),
+    ("Gongzheng GZBK-UV-DX10-X",            "Gongzheng UV", 1080, "UV, 10 kafa"),
+    ("Gongzheng GZBK-UV-DX10-X2",           "Gongzheng UV", 1080, "UV, 8 kafa"),
+    ("Gongzheng GZBK-UV-X5",                "Gongzheng UV",  540, "UV"),
+    ("Gongzheng GZBK-UV-X5-X",              "Gongzheng UV",  540, "UV"),
+    ("Gongzheng SZ-UV-DX10",                "Gongzheng UV", 1080, "UV, 6 kafa"),
+    ("Gongzheng SZ-UV-BK-DX10",             "Gongzheng UV", 1080, "UV, 8 kafa"),
+    # --- AllWin / Allen (320 Allen ailesi) ---
+    ("AllWin / Allen 320 (DTF 6PASS)",      "AllWin", 1800, "320 Allen ailesi"),
+    ("AllWin / Allen 320 (DTF 8PASS)",      "AllWin", 2400, "320 Allen ailesi"),
+    ("AllWin / Allen 320 (DTF 4PASS)",      "AllWin", 1200, "320 Allen ailesi"),
+    ("AllWin / Allen 60cm (DTF 6PASS)",     "AllWin", 1800, "60 cm media"),
+    # --- Diger yaygin DTF markalari (PM19 uretici listesi) ---
+    ("YongLi DTF (6PASS)",                  "YongLi", 1800, "PM19 uretici"),
+    ("ZhongYe DTF (6PASS)",                 "ZhongYe", 1800, "PM19 uretici"),
+    ("ChiTing DTF (6PASS)",                 "ChiTing", 1800, "PM19 uretici"),
+    ("CJET DTF (6PASS)",                    "CJET", 1800, "PM19 uretici"),
+    ("SID Signs DTF (6PASS)",               "SID Signs", 1800, "PM19 uretici"),
+    ("DGI DTF (6PASS)",                     "DGI", 1800, "PM19 uretici"),
+    ("AIC / Epson DTF (i3200)",             "AIC", 1800, "i3200 tabanli"),
+    ("Mimaki DTF (6PASS)",                  "Mimaki", 1800, "PM19 uretici"),
+    ("Mutoh DTF (6PASS)",                   "Mutoh", 1800, "PM19 uretici"),
+    ("Roland DTF (6PASS)",                  "Roland", 1800, "PM19 uretici"),
+    ("Matan DTF (6PASS)",                   "Matan", 1800, "PM19 uretici"),
+    ("Neolt DTF (6PASS)",                   "Neolt", 1800, "PM19 uretici"),
+    ("Astro DTF (6PASS)",                   "Astro", 1800, "PM19 uretici"),
+    ("Azero DTF (6PASS)",                   "Azero", 1800, "PM19 uretici"),
+    ("Grapo DTF (6PASS)",                   "Grapo", 1800, "PM19 uretici"),
+]
+
+for _ad, _grup, _dpi, _not in _EK_MODELLER:
+    if _ad in MAKINELER:
+        continue
+    _m = dict(_DTF_VARSAYILAN)
+    _m["aciklama"] = f"{_grup} — {_not} ({_dpi} dpi dikey)"
+    _m["prt_yukseklik"] = _dpi
+    _m["renk_yuzde"] = dict(_DTF_VARSAYILAN["renk_yuzde"])
+    _m["kanal_sirasi"] = list(_DTF_VARSAYILAN["kanal_sirasi"])
+    MAKINELER[_ad] = _m
+
+
 
 def uygula(ayar, makine_adi):
     """Makine profilini Ayarlar nesnesine uygula."""
