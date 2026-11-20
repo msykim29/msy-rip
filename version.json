@@ -1,5 +1,5 @@
 {
-  "version": "1.0.31",
+  "version": "1.0.32",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "White/spot channel fix: the white layer was collapsed into a single sub-row per block, so the printer produced no white. It is now written to all eight sub-rows like the colour channels, restoring the white layer."
+  "notes": "Horizontal resolution raised to 720 dpi (matches the 720x1800 setting). Previously designs were downscaled to about 90 dpi horizontally, which produced the dotted, low-detail look. 58 cm designs now render at 15200 px wide instead of 1904 px."
 }

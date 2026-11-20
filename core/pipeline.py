@@ -99,10 +99,19 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                 _dpi_gelen = float(_rx.value[0]) / float(_rx.value[1])
     except Exception:
         pass
+    # 20/11 v11 (MSY: "nokta nokta, cozunurluk dusuk" — PM22'de 720x1800):
+    # YATAY HEDEF = 720 dpi (basliktaki [1] ile ayni). Onceden sabit ~90 dpi
+    # kullaniliyordu -> 6335px TIF 1904px'e iniyordu (yatay 3.3x bilgi kaybi,
+    # tam olarak "nokta nokta" gorunumun sebebi).
+    #   58 cm @720dpi -> 16441 px
+    #   Bant genisligi = kullanicinin sectigi dpi (ayar.prt_genislik, vars. 720)
+    _hedef_dpi = float(ayar.prt_genislik or 720)
     _bant_px = int(ayar.prt_bant_px or 0)
     if _bant_px <= 0:
-        _bant_px = max(8, 8 * int(round(w / _dpi_gelen * 90.16 / 8)))
-        log(f"  bant: {w}px @ {_dpi_gelen:.0f}dpi -> {_bant_px}px (yazici bant genisligi)")
+        _istenen = w / _dpi_gelen * _hedef_dpi
+        _bant_px = max(8, 8 * int(round(_istenen / 8)))
+        log(f"  bant: {w}px @ {_dpi_gelen:.0f}dpi -> {_bant_px}px "
+            f"({_hedef_dpi:.0f} dpi hedef, dikey {float(ayar.prt_yukseklik):.0f} dpi)")
     if _bant_px > 0 and w != _bant_px:
         from PIL import Image as _PILImage
         if _ham is not None:
