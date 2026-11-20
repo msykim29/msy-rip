@@ -105,13 +105,18 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # tam olarak "nokta nokta" gorunumun sebebi).
     #   58 cm @720dpi -> 16441 px
     #   Bant genisligi = kullanicinin sectigi dpi (ayar.prt_genislik, vars. 720)
-    _hedef_dpi = float(ayar.prt_genislik or 720)
+    # 20/11 v14 (MSY: "500 MB olmali", baslik 720x1800):
+    #   YATAY  = prt_genislik (720 dpi)  -> 6335 px @300 dpi -> 15200 px
+    #   DIKEY  = prt_yukseklik (1800 dpi) -> 308 x 6 = 1848 satir
+    # Dosya = 5 kanal x 15200 x 1848 x 2 = 281 MB  (PM22 ~400 MB bandi)
+    _yatay_oran = float(ayar.prt_genislik or 720) / max(_dpi_gelen, 1.0)
     _bant_px = int(ayar.prt_bant_px or 0)
     if _bant_px <= 0:
-        _istenen = w / _dpi_gelen * _hedef_dpi
+        _istenen = w * _yatay_oran
         _bant_px = max(8, 8 * int(round(_istenen / 8)))
         log(f"  bant: {w}px @ {_dpi_gelen:.0f}dpi -> {_bant_px}px "
-            f"({_hedef_dpi:.0f} dpi hedef, dikey {float(ayar.prt_yukseklik):.0f} dpi)")
+            f"(yatay {float(ayar.prt_genislik or 720):.0f} dpi, "
+            f"dikey {float(ayar.prt_yukseklik):.0f} dpi)")
     if _bant_px > 0 and w != _bant_px:
         from PIL import Image as _PILImage
         if _ham is not None:
@@ -319,7 +324,11 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # 17/11 FINAL: blok bazli yazici — dikey tekrar + halftone + PRT yazimi
     # tek geciste, duzlem duzlem akisla (buyuk dosyalar icin bellek dostu).
     # Kanallar: kaynak cozunurlukte float 0..1, YATAY AYNALI (yukarida yapildi).
-    pass_s = max(1, int(ayar.pass_sayisi))
+    # 20/11 v13 (MSY: "500 MB'a dusurelim"): dikey olcek dpi oranindan gelir
+    # (1800/300 = 6), pass sayisindan degil. Dosya boyutu = kanal x W x H x 2.
+    pass_s = max(1, int(round(float(ayar.prt_yukseklik or 1800) / max(_dpi_gelen, 1.0))))
+    log(f"  dikey: {float(ayar.prt_yukseklik or 1800):.0f} dpi / {_dpi_gelen:.0f} dpi"
+        f" = x{pass_s} (pass sayisi ayardan bagimsiz)")
     H_src, W_PRT = kanallar[0]['gri'].shape
     H_PRT = H_src * pass_s
     pad = (-H_PRT) % 8
