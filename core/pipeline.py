@@ -105,18 +105,20 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # tam olarak "nokta nokta" gorunumun sebebi).
     #   58 cm @720dpi -> 16441 px
     #   Bant genisligi = kullanicinin sectigi dpi (ayar.prt_genislik, vars. 720)
-    # 20/11 v14 (MSY: "500 MB olmali", baslik 720x1800):
-    #   YATAY  = prt_genislik (720 dpi)  -> 6335 px @300 dpi -> 15200 px
-    #   DIKEY  = prt_yukseklik (1800 dpi) -> 308 x 6 = 1848 satir
-    # Dosya = 5 kanal x 15200 x 1848 x 2 = 281 MB  (PM22 ~400 MB bandi)
-    _yatay_oran = float(ayar.prt_genislik or 720) / max(_dpi_gelen, 1.0)
+    # 20/11 v15 — OLCUM (MSY PM19 ciktisi: 6335 px TIF -> 1904 px PRT):
+    #   YATAY olcek = 0.301  (= 90.16 dpi cikis, baslikta 720 yazsa da)
+    #   DIKEY olcek = 6.0    (= 1800 dpi, 308 -> 1848 satir)
+    # 720 dpi'ye zorlamak dosyayi 8x sisiriyordu (2.5 GB) ve makine zaten
+    # 90 dpi bandini basiyor. Bant formulu PM19 ile birebir:
+    #   bant_px = round(genislik_cm * 90.16 / 8) * 8
     _bant_px = int(ayar.prt_bant_px or 0)
     if _bant_px <= 0:
-        _istenen = w * _yatay_oran
+        _cm = w / max(_dpi_gelen, 1.0) * 2.54
+        _istenen = _cm / 2.54 * 90.16
         _bant_px = max(8, 8 * int(round(_istenen / 8)))
         log(f"  bant: {w}px @ {_dpi_gelen:.0f}dpi -> {_bant_px}px "
-            f"(yatay {float(ayar.prt_genislik or 720):.0f} dpi, "
-            f"dikey {float(ayar.prt_yukseklik):.0f} dpi)")
+            f"({round(_bant_px / max(w / _dpi_gelen, 1e-6))} dpi yatay, "
+            f"{float(ayar.prt_yukseklik or 1800):.0f} dpi dikey)")
     if _bant_px > 0 and w != _bant_px:
         from PIL import Image as _PILImage
         if _ham is not None:

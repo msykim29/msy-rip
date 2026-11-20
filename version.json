@@ -1,5 +1,5 @@
 {
-  "version": "1.0.34",
+  "version": "1.0.35",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Output geometry now follows the header exactly: 720 dpi horizontal and 1800 dpi vertical. Horizontal size is width x (720 / source dpi) and vertical is height x (1800 / source dpi), no longer tied to the pass setting. A 58 cm design is 15200 x 1848 px and about 281 MB."
+  "notes": "Output size restored to the reference RIP geometry: horizontal 90.16 dpi band (6335 px input becomes 1904 px), vertical 1800 dpi. Forcing 720 dpi horizontally made files 8x larger without any visible gain because the printer renders the 90 dpi band. A 53.6 cm design is now 35 MB."
 }
