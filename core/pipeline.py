@@ -299,40 +299,29 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
 
     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
 
-    def _kelime(fired, tip, rng):
-        """PM19 kelime stilleri (19/11 v3 — GERCEK OLCUM, v4 saf renk):
-        16-bit = 8 x 2-bit; her 2-bit grup bir DIKEY ALT-SATIR nokta boyutu.
+    _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
 
-        PM19 olculen kelime dagilimlari (v4 dosyasi):
-          CYAN   : cogu TEK-digit (64, 4096, 16, 4...) -> piksel basina 1-2
-                   alt-satir (%19-25 yogunluk). Yani cyan murekkebi GUCLU,
-                   PM19 onu seyrek alt-satirla basiyor.
-          MAGENTA: 0x5555 (%24) + tek-digit-2 varyantlari -> 8 alt-satirin
-                   HEPSI dolu, kucuk nokta.
-          YELLOW : ayni magentada gibi (0x5555 baskin).
-          K      : 0x5555 (%72) + seyrek upgrade.
-          BEYAZ  : 0xFFFF (tum digitler 3).
-
-        v1.0.22 HATASI: tum renklere 0x5555 veriyordum -> CYAN 4-5 kat fazla
-        murekkep aliyordu (yesil/mavi tonlar dalgali-karisik gorunuyordu)."""
-        fired = (fired > 0)
-        if tip == 'W':
-            return (fired.astype('>u2')) * np.uint16(65535)
-        if tip == 'C':
-            # cyan: piksel basina 1-2 alt-satir (PM19 olcumu)
-            d1 = rng.integers(0, 8, size=fired.shape)
-            w = _POZ[d1]
-            # ~%25 piksellede ikinci alt-satir (272/16400 gibi cift-digit kelimeler)
-            d2 = rng.integers(0, 8, size=fired.shape)
-            ikinci = (rng.random(fired.shape) < 0.25) & (d2 != d1)
-            w = w + np.where(ikinci, _POZ[d2], 0)
-            return (w * fired).astype('>u2')
-        # M / Y / K: 0x5555 + seyrek tek-digit-2 upgrade
-        up = 0.15 if tip in ('M', 'Y') else 0.04
-        w = np.full(fired.shape, 0x5555, dtype=np.uint32)
+    def _kelime_ton(ton, tip, x0=0):
+        """20/11 v5 — TON KODLAMA (olculdu): 16-bit kelimede her 2-bit grup bir
+        DIKEY ALT-SATIR. Grup sayisi = ton x 8 (PM19 olcumu: M/Y/K dolu tonlarda
+        0x5555 = 8/8, dusuk tonda tek-digit).
+        Halftone YOK — kelimenin kendisi tani kodluyor.
+        Digit secimi x'e gore kaydirilir (kosegen desen) -> dikey bant olusmaz.
+        """
+        t = np.clip(np.asarray(ton, dtype=np.float32), 0.0, 1.0)
+        # 20/11: PM19 olcumu — dolu renklerde ortalama 6.8-7.1/8 digit (ink limit ~%86)
+        _lim = float(getattr(ayar, 'murekkep_limiti', 0.86) or 0.86)
+        n = np.rint(t * 8.0 * _lim).astype(np.int32)    # 0..8 alt-satir
+        xs = (np.arange(t.shape[1], dtype=np.int32) + int(x0)) % 8
+        w = np.zeros(t.shape, dtype=np.uint32)
         for d in range(8):
-            w += (rng.random(fired.shape) < up) * _POZ[d]
-        return (w * fired).astype('>u2')
+            # d < n ise dolu (kosegen: hangi digitlerin dolu oldugu x ile kayar)
+            mask = ((xs[None, :] + d) % 8) < n
+            w += mask.astype(np.uint32) * _POZ[d]
+        if tip == 'W':
+            # beyaz: her zaman tam (0xFFFF)
+            return (np.full(t.shape, 65535, dtype=np.uint32)).astype('>u2')
+        return w.astype('>u2')
 
     with open(hedef, 'wb') as f:
         f.write(baslik.tobytes())
@@ -343,17 +332,18 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             gecerli = np.where(Ls < H_PRT)[0]
             src = np.clip(Ls[gecerli], 0, H_PRT - 1) // pass_s
             if len(gecerli):
+                # 20/11 v5: HALFTONE YOK — ton dogrudan kelimeye kodlaniyor
                 if Kch is not None:
-                    plane[8 * gecerli + 0] = _kelime(_ht(Kch[src], 4567 + p * 17), 'K', np.random.default_rng(900 + p))
+                    plane[8 * gecerli + 0] = _kelime_ton(Kch[src], 'K', x0=p * 3)
                 if C is not None:
-                    plane[8 * gecerli + 1] = _kelime(_ht(C[src], 1234 + p * 17), 'C', np.random.default_rng(100 + p))
+                    plane[8 * gecerli + 1] = _kelime_ton(C[src], 'C', x0=p * 5)
                 if M is not None:
-                    plane[8 * gecerli + 2] = _kelime(_ht(M[src], 2345 + p * 17), 'M', np.random.default_rng(300 + p))
+                    plane[8 * gecerli + 2] = _kelime_ton(M[src], 'M', x0=p * 2)
                 if Y is not None:
-                    plane[8 * gecerli + 3] = _kelime(_ht(Y[src], 3456 + p * 17), 'Y', np.random.default_rng(500 + p))
+                    plane[8 * gecerli + 3] = _kelime_ton(Y[src], 'Y', x0=p * 7)
                 if W_ is not None:
-                    # BEYAZ = SOLID 0xFFFF (PM19: tum digitler 2-3, dithersiz)
-                    plane[8 * gecerli + 4] = _kelime((W_[src] > 0.5).astype(np.uint16) * 65535, 'W', None)
+                    _wm = (W_[src] > 0.5)
+                    plane[8 * gecerli + 4] = (_wm.astype(np.uint32) * 65535).astype('>u2')
             f.write(plane.tobytes())
             del plane
     log(f"  blok yazi: 8 duzlem x {BLK} dongu, ters yon, akis bazli (buyuk dosya destekli)")
