@@ -427,29 +427,48 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             src = np.clip(Ls[gecerli], 0, H_PRT - 1) // pass_s
 
             if len(gecerli):
-                # 20/11 v5: HALFTONE YOK — ton dogrudan kelimeye kodlaniyor
-                if Kch is not None:
-                    plane[8 * gecerli + 0] = _kelime_ton(Kch[src], 'K', x0=p * 3)
-                if C is not None:
-                    plane[8 * gecerli + 1] = _kelime_ton(C[src], 'C', x0=p * 5)
-                if M is not None:
-                    plane[8 * gecerli + 2] = _kelime_ton(M[src], 'M', x0=p * 2)
-                if Y is not None:
-                    plane[8 * gecerli + 3] = _kelime_ton(Y[src], 'Y', x0=p * 7)
-                if W_ is not None:
-                    # 20/11 v10 (MSY: "spot atmadi, beyazi basmadi"): beyaz
-                    # katman TUM alt-satirlara (4k+4, k=0..7) yazilir — diger
-                    # renklerle ayni yerlesim. Tek alt-satira sikistirma makine
-                    # tarafinda beyazi okutmuyordu.
-                    _w2 = np.asarray(W_[src], dtype=np.float32).reshape(-1, W_PRT)
-                    _wm = _w2 > 0.5
-                    _n = _wm.shape[0]
-                    _base = 8 * np.arange(_n, dtype=np.intp) + 4
-                    _idx2 = (_base[:, None] + 8 * np.arange(8)[None, :])   # (n,8)
-                    _val2 = np.repeat(_wm, 8, axis=0).reshape(_n, 8, W_PRT)
-                    _ok2 = _idx2 < H_PAD
-                    plane[_idx2[_ok2]] = ((_val2[_ok2]).astype(np.uint32)
-                                          * np.uint32(65535)).astype('>u2')
+                # 20/11 v18 (MSY: "yatay cizgi cizgi basti").
+                # COZUM: dikey olcekleme ALT-SATIR icinde degil, 8 komsu cikis
+                # satirina YAYILARAK yapilir. Kaynak satir i, cikis satirlari
+                # 8i..8i+7 arasina, yatayda farkli fazlarla dagitilir; boylece
+                # her cikis satiri farkli x ornekleri tasir -> dikey korelasyon
+                # duser (PM19 c1=0.18) ve yatay cizgi olusmaz.
+                for _sl, _kay in ((0, Kch), (1, C), (2, M), (3, Y)):
+                    if _kay is None:
+                        continue
+                    _g = np.asarray(_kay)[src]
+                    _hs, _ws2 = _g.shape
+                    _cols = np.arange(_ws2, dtype=np.intp)
+                    for _o in range(8):
+                        # her alt-satir: yarim piksel fazli, 8'e bolunmus ornek
+                        # (x'i 8 kat seyreltmez; 1:1 kalir, sadece faz kayar)
+                        _faz = (_o * 3) % 8
+                        _gg = np.roll(_g, _faz, axis=1)
+                        _t = np.clip(_gg, 0.0, 1.0) * 8.0
+                        _nf = np.floor(_t).astype(np.int32)
+                        _rng2 = np.random.default_rng(
+                            9000 + _sl * 311 + _o * 29 + p)
+                        _nf = np.clip(_nf + (_rng2.random(_t.shape)
+                                             < (_t - _nf)), 0, 8)
+                        _kel = np.zeros(_t.shape, dtype=np.uint32)
+                        for _d in range(8):
+                            _kel += ((_rng2.random(_t.shape) < (_nf / 8.0))
+                                     .astype(np.uint32) << np.uint32(2 * _d))
+                        # blok ici konum = 8*k + slot ; dosya ici (ters) =
+                        # 8*BLK - (blok ici) - 1
+                        _blok_ici = 8 * np.arange(len(gecerli)) + _sl
+                        _hedef_r = blok_alt - _blok_ici - 1
+                        _hedef_r = _hedef_r - 8 * _o if _o else _hedef_r
+                        _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
+                        plane[_hedef_r[_ok]] = _kel[_ok].astype('>u2')
+            # 20/11: beyaz katman (slot 4) — alpha maskesi, 8 alt-satir
+            if W_ is not None:
+                _ws = np.asarray(W_[src], dtype=np.float32).reshape(-1, W_PRT)
+                _vm = _ws > 0.5
+                _idx2 = 8 * np.arange(_vm.shape[0], dtype=np.intp) + 4
+                _ok = _idx2 < H_PAD
+                plane[_idx2[_ok]] = ((_vm[_ok].astype(np.uint32))
+                                     * np.uint32(65535)).astype('>u2')
             f.write(plane.tobytes())
             del plane
     if W_ is not None:

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.36",
+  "version": "1.0.37",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Colour fix: black (K) was previously forced into C/M/Y with max(), which turned coloured areas grey. It is now removed from the colour channels with under-colour removal so hues stay saturated while black stays black."
+  "notes": "Horizontal banding reduced: each of the eight sub-rows now receives a phase shifted sample of the source row and its own dither seed instead of repeating the identical pattern, so neighbouring output rows are no longer identical."
 }
