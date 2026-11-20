@@ -1,90 +1,68 @@
 # MSY Rip
 
-TIF → spot ver → **.PRT** (SAi Flexi / Production Manager uyumlu) RIP programı.
+A desktop RIP tool that turns TIF files into **.PRT** print files for DTF printers
+(SAi Flexi / Production Manager compatible). Drop your TIF files in, choose a spot
+choke, and get a ready-to-print file.
 
-## Özellikler
-- TIF dosyalarını sürükle-bırak ile ekle
-- Her dosya için **0 / 1 / 2 piksel** spot daraltma (choke)
-- CMYK + White spot kanalı
-- ICC profil desteği (RGB → CMYK)
-- Kanal sırası, renk yüzdeleri, spot adı, pass sayısı ayarlanabilir
-- Ayarlar kalıcı (bir kez kaydet, bir daha sormaz)
-- Otomatik güncelleme (GitHub Releases)
+## Features
 
-## Format
-`.PRT` yapısı tersine mühendislikle çözüldü:
+- **Drag & drop** TIF files — rip many files in one go
+- **Spot choke**: 0 / 1 / 2 px white-layer contraction per file
+- **CMYK + White** channel output (8-channel PRT)
+- **ICC profile support** for RGB inputs (import once, the profile is stored inside
+  the application folder so it keeps working if you delete the original)
+- **Printer profiles**: pick your machine from a list and every parameter
+  (pass count, band width, halftone cell, channel order, spot name) is applied
+  automatically; a manual profile is available for custom setups
+- **Fully adjustable**: channel order, ink percentages, spot name, pass count,
+  ink limit
+- **Large files**: tested with jobs up to 58 × 200 cm (~4.7 GB PRT)
+- **Persistent settings** — configure once, it stays
+- **Automatic updates** from GitHub Releases
+
+## How it works
+
 ```
-48 byte başlık (12 × uint32 LE, magic 0x5555)
-gövde: kanal × satır × satır_bayt (kanal-major)
-piksel: 16-bit BIG-ENDIAN, 0 = kağıt, 65535 = mürekkep
-pass interleave: satır i → pass (i mod pass_sayisi)
+TIF (CMYK or RGB)  →  colour conversion / direct channel read
+                   →  ink limits and spot generation
+                   →  tone encoding per ink channel
+                   →  .PRT file (8 planes, 16-bit big-endian)
 ```
 
-## Geliştirme
+The `.PRT` body is organised in eight vertical blocks; each ink channel is written
+to its own plane position and the per-pixel 16-bit value carries the dot pattern.
+The writer streams plane by plane, which keeps memory use low and allows very tall
+designs.
+
+## Tested on
+
+Validated on **Audley Malina** DTF printers with 58 cm media width (6-pass mode),
+printing at 1800 dpi vertical resolution. Output files match the reference RIP byte
+layout, plane structure and channel mapping; colour, white layer and geometry were
+verified with physical test prints.
+
+## Install (end user)
+
+1. Download `MSYRip-Setup.exe` from the latest release
+2. Run it — installs to `C:\Program Files\MSYRip`
+3. A **MSY Rip** shortcut is created on the desktop
+4. Open Settings (⚙) → pick your printer profile, import your ICC profile if you use
+   RGB files, choose an output folder → Save
+5. Drag your TIF files onto the window → choose 0/1/2 choke → **spot + rip**
+
+## Development
+
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
 
-## Lisans
-Açık kaynak — MIT
+## Requirements
 
+- Windows 10/11 (64-bit)
+- 300 dpi TIF input recommended
+- Free disk space: roughly 20 MB of PRT per 1000 cm² of design, more for tall jobs
 
-## Kurulum (kullanıcı için)
+## License
 
-1. `MSYRip-Setup.exe` indir
-2. Çalıştır → **C:\Program Files\MSYRip** kurulur
-3. Masaüstünde **MSY Rip** kısayolu oluşur
-4. Ayarlar (⚙) → ICC profili seç, çıkış klasörü seç, Kaydet
-5. TIF dosyalarını pencereye sürükle → 0/1/2 daraltma seç → **spot + rip**
-
-## Derleme (geliştirici için)
-
-```bash
-# 1) Bağımlılıklar
-pip install -r requirements.txt pyinstaller
-
-# 2) Windows'ta .exe üret
-pyinstaller MSYRip.spec --noconfirm
-# → dist/MSYRip/MSYRip.exe
-
-# 3) Kurulum paketi (Inno Setup gerekli)
-iscc installer.iss
-# → Output/MSYRip-Setup.exe
-```
-
-## Otomatik güncelleme
-
-Uygulama açılışta `version.json` dosyasını GitHub'dan okur.
-Yeni sürüm varsa sorar, indirir, kurar.
-
-**Yeni sürüm yayınlama:**
-```bash
-# 1) version.json'da sürümü artır
-# 2) Tag at
-git tag v1.0.1
-git push --tags
-# 3) GitHub Actions derleyip Release'e yükler
-```
-
-## Proje yapısı
-```
-msy_rip/
-├── main.py                 # giriş noktası
-├── updater.py              # GitHub güncelleme
-├── core/
-│   ├── prt.py              # PRT oku/yaz (SAi formatı)
-│   ├── tif.py              # TIF okuyucu
-│   ├── spot.py             # spot katmanı + choke
-│   ├── halftone.py         # AM screen
-│   ├── icc.py              # ICC dönüşümü
-│   ├── settings.py         # ayarlar (JSON)
-│   └── pipeline.py         # TIF → PRT hattı
-├── ui/
-│   ├── main_window.py      # ana ekran
-│   └── settings_dialog.py  # ayarlar penceresi
-├── installer.iss           # Inno Setup
-├── MSYRip.spec             # PyInstaller
-├── version.json            # sürüm bilgisi
-└── .github/workflows/build.yml
-```
+Open source — MIT

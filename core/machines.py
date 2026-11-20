@@ -1,13 +1,13 @@
 """MSY Rip — makine profilleri.
 
-Her makine kendi PRT parametreleriyle gelir (PM19 'Printer Setup' benzeri).
+Her makine kendi PRT parametreleriyle gelir.
 Kullanici ayarlardan makine secer; tum parametreler otomatik dolar.
 Yeni makine eklemek icin MAKINELER sozlugune kayit ekle.
 """
 
 MAKINELER = {
     "JLHS600EPS3200 (DTF 6PASS)": {
-        "aciklama": "JLHS600 EPS3200 DTF — PM19 uyumlu (dogrulanmis)",
+        "aciklama": "JLHS600 EPS3200 DTF — 6 pass (varsayilan)",
         "kanal_sirasi": ["C", "M", "Y", "Spot_1"],
         "mirror": True,          # 8 kanal: [c0,c1,c2,c3, c3,c2,c1,c0]
         "pass_sayisi": 6,

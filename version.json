@@ -1,5 +1,5 @@
 {
-  "version": "1.0.26",
+  "version": "1.0.27",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Dikey cizgi duzeltmesi: ton kodlamada digit secimi kosegen (deterministik) yapildigi icin 8 pikselde bir tekrar eden DIKEY CIZGILER olusuyordu. Artik her piksel icin rastgele digit kumesi (PM19 gibi) — dikey cizgi yok, renkler ayni."
+  "notes": "Documentation update: English README, tested-on note added, internal benchmark references removed from user-facing messages."
 }

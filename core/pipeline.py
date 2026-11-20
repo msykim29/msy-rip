@@ -101,7 +101,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     _bant_px = int(ayar.prt_bant_px or 0)
     if _bant_px <= 0:
         _bant_px = max(8, 8 * int(round(w / _dpi_gelen * 90.16 / 8)))
-        log(f"  bant: {w}px @ {_dpi_gelen:.0f}dpi -> {_bant_px}px (PM19 olcek)")
+        log(f"  bant: {w}px @ {_dpi_gelen:.0f}dpi -> {_bant_px}px (yazici bant genisligi)")
     if _bant_px > 0 and w != _bant_px:
         from PIL import Image as _PILImage
         if _ham is not None:
@@ -113,7 +113,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             _img = _PILImage.fromarray(rgba)
             _img = _img.resize((_bant_px, h), _PILImage.LANCZOS)   # dikey KORUNUR
             rgba = np.array(_img, dtype=np.uint8)
-        log(f"  olcek: {w}x{h} -> {_bant_px}x{h} (bant genisligi, PM19 uyumlu)")
+        log(f"  olcek: {w}x{h} -> {_bant_px}x{h} (bant genisligi)")
         w = _bant_px
 
     # 1) RGB → CMYK
@@ -152,7 +152,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             _alh = _ham[:, :, 4] > 127
             if not _alh.all():
                 cmyk[~_alh] = 0
-        log("  CMYK: TIF kanallarindan dogrudan (K dahil)")
+        log("  CMYK: TIF kanallarindan dogrudan okundu")
     else:
         rgb = rgba[:, :, :3]
         cmyk = icc_mod.rgb_to_cmyk(
@@ -176,7 +176,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         cmyk = cmyk.copy()
         for _i in range(3):
             cmyk[:, :, _i] = np.maximum(cmyk[:, :, _i], _K)
-        log("  siyah: K -> C+M+Y dagitildi (zengin siyah, PM19 uyumlu)")
+        log("  siyah: K -> C+M+Y dagitildi (zengin siyah)")
 
     # 2) Renk yüzdeleri
     yzd = ayar.renk_yuzde
@@ -199,7 +199,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             _am = _am[:, _xs]
         spot = (_am.astype(np.uint16) * 65535)
         oran = spot_mod.kapsama_orani(_am)
-        log(f"  spot: {ayar.spot_adi} (ALPHA tabanli - PM19 uyumlu, daraltma {daraltma}px, kapsama %{oran*100:.1f})")
+        log(f"  spot: {ayar.spot_adi} (alpha tabanli, daraltma {daraltma}px, kapsama %{oran*100:.1f})")
     elif _ham is not None:
         # CMYK TIF ama alpha yok -> beyaz = murekkepli alan birlesimi
         _m = ((_ham[:, :, :4] > 0).any(axis=2))
@@ -235,7 +235,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # 17/11 PM19: goruntu YATAY AYNALI yazilir (DTF transfer icin)
     for _k in kanallar:
         _k['gri'] = _k['gri'][:, ::-1].copy()
-    log(f"  ham kanal: {len(kanallar)} adet, yatay AYNALANDI (PM19 uyumlu)")
+    log(f"  ham kanal: {len(kanallar)} adet (yatay aynalandi)")
 
     # 18/11: ESKI 8-duzlem mirror yapisi KALDIRILDI — blok yazici
     # kanallari ISIMLE aliyor (C, M, Y, K, Spot). K artik kaybolmuyor.
@@ -349,6 +349,6 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     plane[8 * gecerli + 4] = (_wm.astype(np.uint32) * 65535).astype('>u2')
             f.write(plane.tobytes())
             del plane
-    log(f"  blok yazi: 8 duzlem x {BLK} dongu, ters yon, akis bazli (buyuk dosya destekli)")
+    log(f"  yazim: 8 duzlem x {BLK} dongu (akis bazli)")
     log(f"  yazildi: {hedef} ({os.path.getsize(hedef):,} bayt)")
     return hedef
