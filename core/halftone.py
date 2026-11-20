@@ -1,4 +1,4 @@
-"""AM (açılı) halftone ekranı — SAi ScreenProHalftone benzeri.
+"""AM (açılı) halftone ekranı.
 
 Dünden (14/11) çıkarılan ölçümler:
   - DTF-RIPTEST 6 PASS: yatay nokta periyodu ~34 px, dikey ~8 px

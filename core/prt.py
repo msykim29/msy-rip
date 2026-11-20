@@ -1,4 +1,4 @@
-"""MSY Rip — PRT okuyucu/yazıcı (SAi Flexi format).
+"""MSY Rip — PRT okuyucu/yazıcı (DTF yazıcı formatı).
 
 Format (14/11/2026 tersine mühendislikle çözüldü, MD5 ile doğrulandı):
   Başlık: 48 byte, 12 x uint32 little-endian
@@ -76,7 +76,7 @@ def yaz(yol: str, px: np.ndarray, genislik=720, yukseklik=1800,
         px = px.astype(np.uint16)
     # 16/11/2026 MSY (s2.tiff vakasi): tek sayili genislik hata veriyordu.
     # PRT formati 16-bit piksel = 2 byte; genislik tek ise 1 sutun bos padding
-    # ekle (yazarken), okuyan tarafta gorunmez. SAi/PRT bu sekilde calisir.
+    # ekle (yazarken), okuyan tarafta gorunmez. PRT bu sekilde calisir.
     _padded = False
     if piksel_genislik % 2:
         px = np.pad(px, ((0, 0), (0, 0), (0, 1)), mode='constant', constant_values=0)

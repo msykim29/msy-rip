@@ -1,8 +1,7 @@
 # MSY Rip
 
-A desktop RIP tool that turns TIF files into **.PRT** print files for DTF printers
-(SAi Flexi / Production Manager compatible). Drop your TIF files in, choose a spot
-choke, and get a ready-to-print file.
+A desktop RIP tool that turns TIF files into **.PRT** print files for DTF printers.
+Drop your TIF files in, choose a spot choke, and get a ready-to-print file.
 
 ## Features
 
