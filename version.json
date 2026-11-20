@@ -1,5 +1,5 @@
 {
-  "version": "1.0.25",
+  "version": "1.0.26",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "RENK KOK DUZELTME (Gemini + PM19 olcumu): kelimeler TON kodluyor — halftone GEREKSIZ. Her 2-bit grup bir dikey alt-satir; digit sayisi = ton x 8 x ink-limiti. Halftone (SOFM/2D) kaldirildi, dogrudan ton->kelime. Digit deseni x ile kayar (kosegen) — dikey bant/dalga yok. Ink limit %86 (PM19: 6.8-7.1/8 digit)."
+  "notes": "Dikey cizgi duzeltmesi: ton kodlamada digit secimi kosegen (deterministik) yapildigi icin 8 pikselde bir tekrar eden DIKEY CIZGILER olusuyordu. Artik her piksel icin rastgele digit kumesi (PM19 gibi) — dikey cizgi yok, renkler ayni."
 }

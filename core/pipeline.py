@@ -312,11 +312,14 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         # 20/11: PM19 olcumu — dolu renklerde ortalama 6.8-7.1/8 digit (ink limit ~%86)
         _lim = float(getattr(ayar, 'murekkep_limiti', 0.86) or 0.86)
         n = np.rint(t * 8.0 * _lim).astype(np.int32)    # 0..8 alt-satir
-        xs = (np.arange(t.shape[1], dtype=np.int32) + int(x0)) % 8
+        # 20/11 v6: digit secimi RASTGELE (PM19 gibi) — kosegen desen DIKEY CIZGI
+        # birakiyordu. Her piksel icin bagimsiz rastgele digit kumesi.
+        rng = np.random.default_rng(int(x0) * 7919 + 13)
         w = np.zeros(t.shape, dtype=np.uint32)
         for d in range(8):
-            # d < n ise dolu (kosegen: hangi digitlerin dolu oldugu x ile kayar)
-            mask = ((xs[None, :] + d) % 8) < n
+            r = rng.random(t.shape)
+            # n/8 oraninda dolu; n=8 -> hepsi dolu (0x5555), n<8 -> rastgele secim
+            mask = r < (n / 8.0)
             w += mask.astype(np.uint32) * _POZ[d]
         if tip == 'W':
             # beyaz: her zaman tam (0xFFFF)
