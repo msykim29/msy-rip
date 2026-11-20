@@ -1,5 +1,5 @@
 {
-  "version": "1.0.30",
+  "version": "1.0.31",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Colour density fix: separate halftone stage removed (tone is encoded in the 16-bit word, applying halftone on top multiplied the tone = washed out + lost detail). Real tone now reaches the print head. Spot layering order corrected so white is generated from the raw channels."
+  "notes": "White/spot channel fix: the white layer was collapsed into a single sub-row per block, so the printer produced no white. It is now written to all eight sub-rows like the colour channels, restoring the white layer."
 }

@@ -407,16 +407,19 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                 if Y is not None:
                     plane[8 * gecerli + 3] = _kelime_ton(Y[src], 'Y', x0=p * 7)
                 if W_ is not None:
-                    # 20/11: beyaz katman = alt-satir 4k+4, blok p icin mutlak
-                    # konum 8k + 8p + 7 (olcumle dogrulandi). ONCEDEN 8k+4p+4
-                    # kullaniliyordu -> ilk blokta +4, son blokta satir kaybi.
+                    # 20/11 v10 (MSY: "spot atmadi, beyazi basmadi"): beyaz
+                    # katman TUM alt-satirlara (4k+4, k=0..7) yazilir — diger
+                    # renklerle ayni yerlesim. Tek alt-satira sikistirma makine
+                    # tarafinda beyazi okutmuyordu.
                     _w2 = np.asarray(W_[src], dtype=np.float32).reshape(-1, W_PRT)
-                    _idx = 8 * np.arange(_w2.shape[0], dtype=np.intp) + 8 * p + 7
-                    _idx = _idx[_idx < H_PAD]
-                    _sel = _w2[:_idx.shape[0]]
-                    plane[_idx] = ((_sel > 0.5).astype(np.uint32)
-                                   * np.uint32(65535)).astype('>u2')
-
+                    _wm = _w2 > 0.5
+                    _n = _wm.shape[0]
+                    _base = 8 * np.arange(_n, dtype=np.intp) + 4
+                    _idx2 = (_base[:, None] + 8 * np.arange(8)[None, :])   # (n,8)
+                    _val2 = np.repeat(_wm, 8, axis=0).reshape(_n, 8, W_PRT)
+                    _ok2 = _idx2 < H_PAD
+                    plane[_idx2[_ok2]] = ((_val2[_ok2]).astype(np.uint32)
+                                          * np.uint32(65535)).astype('>u2')
             f.write(plane.tobytes())
             del plane
     if W_ is not None:
