@@ -355,8 +355,14 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     sb = W_PRT * 2
     # 20/11: blok formulu PM19 olcumuyle ayni (satir_bayt*4-28)
     blok_alan = {3808: 15204, 4112: 16440}.get(sb, sb * 4 - 28)
+    # 20/11 v12 (MSY: "400 MB dosya 4 GB oldu"): PM19 dosyada baslik[7] kadar
+    # duzlem yaziyor (ornek: 5 kanal -> 5 duzlem, 291.9 MB = 48+5*W*H*2).
+    # Biz 8 yaziyorduk -> dosya 1.6x + 8x buyume = 4 GB. Artik duzlem sayisi
+    # = kanal sayisi (PM19 ile birebir).
+    _duzlem_sayisi = max(1, len(kanallar))
     baslik = np.array([0x5555, int(ayar.prt_genislik), int(ayar.prt_yukseklik),
-                       sb, H_PAD, blok_alan, 0, 8, 2, 0, 0, 0], dtype='<u4')
+                       sb, H_PAD, blok_alan, 0, _duzlem_sayisi, 2, 0, 0, 0],
+                      dtype='<u4')
 
     # 20/11 v7 (MSY: "cozunurluk cok dusuyor"): Ayri halftone katmani KALDIRILDI.
     # 16-bit kelime zaten ton kodluyor; ustune halftone uygulaninca ton x ton
@@ -397,7 +403,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
 
     with open(hedef, 'wb') as f:
         f.write(baslik.tobytes())
-        for p in range(8):
+        for p in range(_duzlem_sayisi):
             blok_alt = (8 - p) * BLK
             plane = np.zeros((H_PAD, W_PRT), dtype='>u2')
             Ls = blok_alt - 1 - np.arange(BLK)            # ters yon

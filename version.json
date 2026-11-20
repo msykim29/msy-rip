@@ -1,5 +1,5 @@
 {
-  "version": "1.0.32",
+  "version": "1.0.33",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Horizontal resolution raised to 720 dpi (matches the 720x1800 setting). Previously designs were downscaled to about 90 dpi horizontally, which produced the dotted, low-detail look. 58 cm designs now render at 15200 px wide instead of 1904 px."
+  "notes": "File size fixed: the PRT now stores exactly as many planes as the header declares (5 for a CMYK + white job) instead of always writing 8. A 58 cm design is now 281 MB instead of 4 GB, matching the reference RIP output byte for byte."
 }
