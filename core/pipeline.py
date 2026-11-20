@@ -286,11 +286,15 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # 3b) K dagitimi + renk yuzdeleri (spot artik HAM kanallardan uretildi)
     _k_yazili = any(str(_ad).strip().upper() == 'K' for _ad in ayar.kanal_sirasi)
     if not _k_yazili and cmyk.shape[2] >= 4:
-        _K = cmyk[:, :, 3]
+        # 20/11 v16 (MSY: "siyah beyaz yazdi"): K -> max() ile C/M/Y'ye
+        # eziliyordu; siyah alanlar C=M=Y=K olunca notr gri/siyaha donuyordu.
+        # Dogru UCR/GCR: renk kanallarindan K kadar cikar, K'yi ayri bas.
+        _K = cmyk[:, :, 3].astype(np.float32)
         cmyk = cmyk.copy()
         for _i in range(3):
-            cmyk[:, :, _i] = np.maximum(cmyk[:, :, _i], _K)
-        log("  siyah: K -> C+M+Y dagitildi (zengin siyah)")
+            cmyk[:, :, _i] = np.clip(
+                cmyk[:, :, _i].astype(np.float32) - _K * 0.6, 0, 255).astype(np.uint8)
+        log("  siyah: K -> C+M+Y'den UCR ile cikarildi (renk korunur)")
     yzd = ayar.renk_yuzde
     for i, ad in enumerate(('C', 'M', 'Y', 'K')):
         p = float(yzd.get(ad, 100)) / 100.0
