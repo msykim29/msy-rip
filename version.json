@@ -1,5 +1,5 @@
 {
-  "version": "1.0.43",
+  "version": "1.0.44",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Colour density fix: the CMYK ICC conversion was darkening every channel (tone 0.75 to 0.54), which caused the washed-out, grainy look. CMYK files are now read without that conversion, like the reference RIP, and a slight density match restores the original tone. Horizontal resampling now uses nearest, matching the reference output."
+  "notes": "Vertical banding reduced: each sub-row now uses a shifted bit permutation, so the dot pattern changes row to row (measured 84% of rows differ, matching the reference at 83%) while the tone stays identical."
 }

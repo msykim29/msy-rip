@@ -418,7 +418,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
 
     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
 
-    def _kelime_ton(ton, tip, x0=0):
+    def _kelime_ton(ton, tip, x0=0, y0=0):
         """20/11 v5 — TON KODLAMA (olculdu): 16-bit kelimede her 2-bit grup bir
         DIKEY ALT-SATIR. Grup sayisi = ton x 8 (PM19 olcumu: M/Y/K dolu tonlarda
         0x5555 = 8/8, dusuk tonda tek-digit).
@@ -435,8 +435,10 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                .random(t.shape) < (t8 - n))
         n = n + pay.astype(np.int32)                    # kesirli kisim olasiliksal
         n = np.clip(n, 0, 8)
-        # digit secimi RASTGELE (PM19 gibi) — kosegen desen DIKEY CIZGI birakiyordu
-        rng = np.random.default_rng(int(x0) * 7919 + 13)
+        # digit secimi RASTGELE — x0 + y0 tohumu ile her satir FARKLI desen
+        # 21/11 v38 (MSY: "dikey cizgiler var"): y0 eklenerek alt-satirlar
+        # arasinda fark yaratilir, dikey cizgi kirilir.
+        rng = np.random.default_rng(int(x0) * 7919 + int(y0) * 104729 + 13)
         w = np.zeros(t.shape, dtype=np.uint32)
         for d in range(8):
             r = rng.random(t.shape)
@@ -497,11 +499,24 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                         _kel += ((_nf2 > _d).astype(np.uint32)
                                  << np.uint32(2 * _d))
 
-                    # PM22: 8 alt-satır aynı kelime dizisi
+                    # 21/11 v38 — DİKEY ÇİZGİ KIRMA (MSY şikayeti):
+                    # PM22'de her 8 alt-satır AYNI kelimeyi taşıyor; ama
+                    # bit'lerin İÇİNDEKİ dizilim alt-satırdan alt-satıra
+                    # DEĞİŞİYOR (ölçüm: x=163 için n=[6,8,7,6,7,6]).
+                    # n sabit kalır, BİT PERMÜTASYONU değişir → aynı ton,
+                    # farklı dikey desen → dikey çizgi kırılır.
+                    _rng_v = np.random.default_rng(31_000 + _sl * 97 + p * 13)
+                    _perm_tab = _rng_v.permuted(np.arange(8))  # ilk permütasyon
                     for _o in range(8):
+                        _perm = np.roll(_perm_tab, _o)
+                        _kat = np.zeros(_t.shape, dtype=np.uint32)
+                        for _d in range(8):
+                            # bit _d -> hedef bit _perm[_d]
+                            _kat += (((_nf2 > _d).astype(np.uint32))
+                                     << np.uint32(2 * int(_perm[_d])))
                         _hedef_r = 8 * gecerli + _sl + 8 * _o
                         _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
-                        plane[_hedef_r[_ok]] = _kel[_ok].astype('>u2')
+                        plane[_hedef_r[_ok]] = _kat[_ok].astype('>u2')
             # 20/11: beyaz katman (slot 4) — alpha maskesi, 8 alt-satir
             if W_ is not None:
                 # 21/11 v18 (PM22 ölçümü): beyaz slot4, 8 alt-satır aynı,
