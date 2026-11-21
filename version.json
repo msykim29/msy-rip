@@ -1,5 +1,5 @@
 {
-  "version": "1.0.44",
+  "version": "1.0.45",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Vertical banding reduced: each sub-row now uses a shifted bit permutation, so the dot pattern changes row to row (measured 84% of rows differ, matching the reference at 83%) while the tone stays identical."
+  "notes": "Dither rewritten to match the reference RIP exactly: contiguous dot groups are preserved (no pixel scattering), each sub-row gets its own mask row so vertical banding disappears, every 8-row block produces a different tone pattern so horizontal waves are gone, and the density multiplier is corrected so tone distribution matches the reference."
 }

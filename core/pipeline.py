@@ -291,15 +291,11 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # 3b) K dagitimi + renk yuzdeleri (spot artik HAM kanallardan uretildi)
     _k_yazili = any(str(_ad).strip().upper() == 'K' for _ad in ayar.kanal_sirasi)
     if not _k_yazili and cmyk.shape[2] >= 4:
-        # 20/11 v16 (MSY: "siyah beyaz yazdi"): K -> max() ile C/M/Y'ye
-        # eziliyordu; siyah alanlar C=M=Y=K olunca notr gri/siyaha donuyordu.
-        # Dogru UCR/GCR: renk kanallarindan K kadar cikar, K'yi ayri bas.
-        _K = cmyk[:, :, 3].astype(np.float32)
-        cmyk = cmyk.copy()
-        for _i in range(3):
-            cmyk[:, :, _i] = np.clip(
-                cmyk[:, :, _i].astype(np.float32) - _K * 0.6, 0, 255).astype(np.uint8)
-        log("  siyah: K -> C+M+Y'den UCR ile cikarildi (renk korunur)")
+        # 21/11 v42 — UCR KALDIRILDI (PM22 ölçümü):
+        #   TIF C=234, K=208 -> UCR(C-0.6*K) = 109 -> %53 TON KAYBI
+        #   PM22'de slot0/1/2/3 tonları EŞİT (0.72-0.75) -> UCR yok!
+        # Yani K kanalı ayrı yazılır, renk kanallarından ÇIKARILMAZ.
+        log("  siyah: ayri kanal (UCR yok, PM22 esleme)")
     yzd = ayar.renk_yuzde
     for i, ad in enumerate(('C', 'M', 'Y', 'K')):
         p = float(yzd.get(ad, 100)) / 100.0
@@ -466,6 +462,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     if _kay is None:
                         continue
                     _g = np.asarray(_kay)[src]
+
                     # 21/11 v22 — GERİ DÖNÜŞ: v1.0.38 (MSY onaylı) tam lineer.
                     # v1.0.39'daki gamma 0.38 ve v1.0.21'deki eşleme denendi,
                     # ikisi de baskıyı bozdu -> v1.0.38 davranışı geri getirildi.
@@ -477,9 +474,21 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # 21/11 v36 — ICC kapalı + hafif doygunluk eşlemesi.
                     # Ölçüm: PM22 ton 0.67/0.75/0.75, biz 0.59/0.68/0.70
                     # -> kalan farkı kapatmak için 1.07 çarpanı (tepe 1.0)
-                    _g3 = np.clip(np.clip(_g, 0.0, 1.0) * 1.07, 0.0, 1.0)
+                    # 21/11 v47 — TON ÇARPANI DÜZELTİLDİ (ölçüm):
+                    #   TIF 0.92 -> PM22 ort n = 5.96 -> ton 0.745
+                    #   0.92 × 0.81 = 0.745  ✓
+                    # v43'teki 1.07 çarpanı tonu fazla şişiriyordu.
+                    _g3 = np.clip(np.clip(_g, 0.0, 1.0) * 0.81, 0.0, 1.0)
                     _t = _g3 * 8.0
+                    # 21/11 v40 — YATAY DALGA KÖK NEDENİ (MSY: "düz renkte dalgalar"):
+                    # 8 çıkış satırı AYNI kaynak satırı kullanıyor (src = Ls//pass
+                    # yüzünden). PM22'de de kaynak aynı ama DITHER MASKESİ her
+                    # çıkış satırında farklı: (5,6,6,8) (6,6,8,8) (7,6,7,8)...
+                    # Düzeltme: maske satırı = çıkış satırı (o) bazlı, blok dahil.
+                    _my = (p * 29 + _sl * 71) % 256
                     _m8 = _dither_maske(_t.shape[0], _t.shape[1], _sl, p).astype(np.float32)
+                    if _m8.shape[0] > 0:
+                        _m8 = np.roll(_m8, _my, axis=0)
                     _mf = _m8 / 254.0                    # 0..1 eşik
                     _kel = np.zeros(_t.shape, dtype=np.uint32)
                     # 21/11 v33 — PM22 ÖLÇÜMÜ (kesin):
@@ -490,28 +499,38 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # Formül: n = round(ton*8) ve maske ile ±1 dither:
                     #   kesir > mf  -> n+1,  değilse n
                     # Bu PM22'nin dağılımını (4,5,6,7) birebir verir.
-                    _t8v = _t                               # 0..8 (ton*8)
-                    _nf2 = np.floor(_t8v).astype(np.int32)
-                    _nf2 = _nf2 + ((_t8v - _nf2) > _mf).astype(np.int32)
-                    _nf2 = np.clip(_nf2, 0, 8)
-                    # kelime: nf2 alt-satır dolu (ilk nf2 bit)
-                    for _d in range(8):
-                        _kel += ((_nf2 > _d).astype(np.uint32)
-                                 << np.uint32(2 * _d))
-
-                    # 21/11 v38 — DİKEY ÇİZGİ KIRMA (MSY şikayeti):
-                    # PM22'de her 8 alt-satır AYNI kelimeyi taşıyor; ama
-                    # bit'lerin İÇİNDEKİ dizilim alt-satırdan alt-satıra
-                    # DEĞİŞİYOR (ölçüm: x=163 için n=[6,8,7,6,7,6]).
-                    # n sabit kalır, BİT PERMÜTASYONU değişir → aynı ton,
-                    # farklı dikey desen → dikey çizgi kırılır.
+                    # 21/11 v40 — her çıkış satırı (o) için AYRI maske satırı:
+                    # n = floor(ton*8) + (kesir > maske_satiri/254)
+                    # Böylece aynı kaynak satırdan gelen 8 çıkış satırı FARKLI
+                    # tonlara sahip olur (PM22 gibi) -> yatay dalga kaybolur.
+                    _t8v = _t
+                    # 21/11 v41 — PM22 DITHER YAYILIMI (ölçüm):
+                    #   TIF 0.92 (n beklenti 7.36) -> PM22 n dağılımı 1-8,
+                    #   ort 5.39, std 1.53
+                    # Yani sabit ton için n ±1.5 SAPMA gösteriyor.
+                    # Formül: n = ton*8 + (maske - 0.5) * spread
+                    #   spread = 3 ile std ≈ 0.87; 5 ile ≈ 1.44 (PM22'ye yakın)
+                    # 21/11 v45 — PM22 BİREBİR DITHER (piksel ölçümü):
+                    #   TIF 0.92 (19 px bitişik grup) -> PM22 çıktıda AYNI grup,
+                    #   her pikselde n farklı: [8,6,6,7,8,5,8,4,7,7,6,7,7,5,3,6...]
+                    #   TIF boş -> n=0 (grup korunuyor, dağıtma YOK)
+                    # Formül: n = rint(ton*8 + (maske - 0.5) * spread)
+                    #   spread 2.5 + alt-satır bazlı maske kayması
+                    _spread = 4.5
+                    _t8v = _t
                     _rng_v = np.random.default_rng(31_000 + _sl * 97 + p * 13)
-                    _perm_tab = _rng_v.permuted(np.arange(8))  # ilk permütasyon
+                    _perm_tab = _rng_v.permuted(np.arange(8))
                     for _o in range(8):
+                        # her alt-satır FARKLI maske satırı (dikey çizgi kırma)
+                        _sh = (p * 53 + _o * 37 + _sl * 11) % 256
+                        _m_row = np.roll(_mf, _sh, axis=0)
+                        _t8_blk = _t8v + (_m_row - 0.5) * _spread
+                        _nf2 = np.clip(np.rint(_t8_blk).astype(np.int32), 0, 8)
+                        # ton 0 ise n=0 (TIF boş alan korunur)
+                        _nf2 = np.where(_t8v < 0.5, 0, _nf2)
                         _perm = np.roll(_perm_tab, _o)
                         _kat = np.zeros(_t.shape, dtype=np.uint32)
                         for _d in range(8):
-                            # bit _d -> hedef bit _perm[_d]
                             _kat += (((_nf2 > _d).astype(np.uint32))
                                      << np.uint32(2 * int(_perm[_d])))
                         _hedef_r = 8 * gecerli + _sl + 8 * _o
