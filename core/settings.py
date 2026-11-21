@@ -44,7 +44,11 @@ class Ayarlar:
     icc_yol: str = 'Renk Profili.icc'
     icc_intent: str = 'Perceptual'
     icc_bpc: bool = True
-    icc_cmyk_donusum: bool = True   # CMYK TIF'lerde de renk profilini uygula
+    # 21/11 — MSY: "renkler soluk, ISO kumlaması var" şikayetinin kökü:
+    # CMYK TIF'te ICC dönüşümü tonu 0.749 -> 0.539 düşürüyor (ölçüldü).
+    # PM22 de bu dönüşümü YAPMIYOR (kanalları ham okuyor).
+    # Varsayılan KAPALI; kullanıcı Ayarlar'dan açabilir.
+    icc_cmyk_donusum: bool = False
 
     # 4) Spot ismi
     spot_adi: str = 'Spot_1'

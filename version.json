@@ -1,5 +1,5 @@
 {
-  "version": "1.0.42",
+  "version": "1.0.43",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Version label at the bottom now always shows the full 1.0.x version (version.json was not bundled into the exe before, so it fell back to 1.0.0)."
+  "notes": "Colour density fix: the CMYK ICC conversion was darkening every channel (tone 0.75 to 0.54), which caused the washed-out, grainy look. CMYK files are now read without that conversion, like the reference RIP, and a slight density match restores the original tone. Horizontal resampling now uses nearest, matching the reference output."
 }

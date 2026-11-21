@@ -6,7 +6,7 @@
 
 ; 21/11 MSY: surum version.json'dan otomatik okunur.
 ; GitHub Actions build sirasinda "gen_version_iss.py" bu satiri gunceller.
-#define MyAppVersion "1.0.42"
+#define MyAppVersion "1.0.43"
 #define MyAppPublisher "MSY"
 #define MyAppExeName "MSYRip.exe"
 

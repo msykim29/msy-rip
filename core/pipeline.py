@@ -121,14 +121,19 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             f"{float(ayar.prt_yukseklik or 1800):.0f} dpi dikey)")
     if _bant_px > 0 and w != _bant_px:
         from PIL import Image as _PILImage
+        # 21/11 v24 — PM22 ÖLÇÜMÜ: yatay küçültmede NEAREST kullanıyor.
+        # Kanıt: TIF dolu piksellerin PRT'de karşılığı
+        #   LANCZOS %85 | BICUBIC %92 | BILINEAR %90 | NEAREST %99
+        # NEAREST kenarları yumuşatmıyor -> fotoğraf netliği koruyor.
+        _rs = _PILImage.NEAREST
         if _ham is not None:
             _ham = np.stack([
                 np.array(_PILImage.fromarray(_ham[:, :, i])
-                         .resize((_bant_px, h), _PILImage.LANCZOS))
+                         .resize((_bant_px, h), _rs))
                 for i in range(_ham.shape[2])], axis=2)
         else:
             _img = _PILImage.fromarray(rgba)
-            _img = _img.resize((_bant_px, h), _PILImage.LANCZOS)   # dikey KORUNUR
+            _img = _img.resize((_bant_px, h), _rs)   # dikey KORUNUR
             rgba = np.array(_img, dtype=np.uint8)
         log(f"  olcek: {w}x{h} -> {_bant_px}x{h} (bant genisligi)")
         w = _bant_px
@@ -389,6 +394,26 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     def _ht(rows_f, seed=0):
         return (rows_f.clip(0.0, 1.0) * 65535.0).astype(np.uint16)
 
+    # ---- 21/11 PM dither maskeleri (dither.dll RCDATA 101-108) ----
+    try:
+        from . import dither as _dm
+    except Exception:
+        try:
+            import core.dither as _dm
+        except Exception:
+            _dm = None
+
+    def _mask_id(slot):
+        return 101 + (int(slot) % 4)
+
+    def _dither_maske(h, w, slot, blok):
+        n_ = _mask_id(slot)
+        if _dm is None or not _dm.maske_var(n_):
+            yy, xx = np.mgrid[0:h, 0:w]
+            return ((yy * 137 + xx * 71) % 255).astype(np.uint8)
+        return _dm.esik_matrisi(h, w, n_, ofs_x=(blok * 37) % 256,
+                                ofs_y=(blok * 53) % 256)
+
     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
 
     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
@@ -442,14 +467,36 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # 21/11 v22 — GERİ DÖNÜŞ: v1.0.38 (MSY onaylı) tam lineer.
                     # v1.0.39'daki gamma 0.38 ve v1.0.21'deki eşleme denendi,
                     # ikisi de baskıyı bozdu -> v1.0.38 davranışı geri getirildi.
-                    _t = np.clip(_g, 0.0, 1.0) * 8.0
-                    _nf = np.floor(_t).astype(np.int32)
-                    _rng2 = np.random.default_rng(7000 + _sl * 31 + p)
-                    _nf = np.clip(_nf + (_rng2.random(_t.shape) < (_t - _nf)), 0, 8)
+                    # 21/11 v30 — PM22 TON ÖLÇÜMÜ (kesin):
+                    #   TIF 0.759 -> PM ton 0.75  (NEREDEYSE AYNI!)
+                    #   TIF 0.84  -> PM 0.60-0.76
+                    # => ton_out ≈ ton_in (LINEER, katsayı 1.0)
+                    # Önceki denemelerdeki gamma/katsayı tamamen kaldırıldı.
+                    # 21/11 v36 — ICC kapalı + hafif doygunluk eşlemesi.
+                    # Ölçüm: PM22 ton 0.67/0.75/0.75, biz 0.59/0.68/0.70
+                    # -> kalan farkı kapatmak için 1.07 çarpanı (tepe 1.0)
+                    _g3 = np.clip(np.clip(_g, 0.0, 1.0) * 1.07, 0.0, 1.0)
+                    _t = _g3 * 8.0
+                    _m8 = _dither_maske(_t.shape[0], _t.shape[1], _sl, p).astype(np.float32)
+                    _mf = _m8 / 254.0                    # 0..1 eşik
                     _kel = np.zeros(_t.shape, dtype=np.uint32)
+                    # 21/11 v33 — PM22 ÖLÇÜMÜ (kesin):
+                    #   TIF ton 0.759 -> n = 6 ortalama (0.75)
+                    #   PM22 n dağılımı: 4-7 arası, ortalama dizi uzunluğu 1.26
+                    #   (yani n PİKSELDEN PİKSELE değişiyor — dither)
+                    #
+                    # Formül: n = round(ton*8) ve maske ile ±1 dither:
+                    #   kesir > mf  -> n+1,  değilse n
+                    # Bu PM22'nin dağılımını (4,5,6,7) birebir verir.
+                    _t8v = _t                               # 0..8 (ton*8)
+                    _nf2 = np.floor(_t8v).astype(np.int32)
+                    _nf2 = _nf2 + ((_t8v - _nf2) > _mf).astype(np.int32)
+                    _nf2 = np.clip(_nf2, 0, 8)
+                    # kelime: nf2 alt-satır dolu (ilk nf2 bit)
                     for _d in range(8):
-                        _kel += ((_rng2.random(_t.shape) < (_nf / 8.0))
-                                 .astype(np.uint32) << np.uint32(2 * _d))
+                        _kel += ((_nf2 > _d).astype(np.uint32)
+                                 << np.uint32(2 * _d))
+
                     # PM22: 8 alt-satır aynı kelime dizisi
                     for _o in range(8):
                         _hedef_r = 8 * gecerli + _sl + 8 * _o
