@@ -1,5 +1,5 @@
 {
-  "version": "1.0.37",
+  "version": "1.0.38",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Horizontal banding reduced: each of the eight sub-rows now receives a phase shifted sample of the source row and its own dither seed instead of repeating the identical pattern, so neighbouring output rows are no longer identical."
+  "notes": "Byte-level match with the reference RIP output: always 8 planes (header field 7 = 8), white layer on plane 4, identical row structure (8 output rows repeat the same word, no phase shift). A 53.6 cm design is now 56.3 MB, exactly like the reference file."
 }
