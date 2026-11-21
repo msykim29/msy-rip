@@ -1,5 +1,5 @@
 {
-  "version": "1.0.39",
+  "version": "1.0.40",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Tone curve now matches the reference RIP: measured tone distribution was ~48% high dots against 70-75% in the reference, which caused the washed-out halftone look. Applied a tone curve (gamma 0.38) and a two sub-row floor for inked pixels, so printed density and colour vividness now line up with the reference output."
+  "notes": "Reverted the tone-curve experiment from 1.0.39 (it made prints darker and blotchy). Tone coding is linear again, exactly like 1.0.38 which printed correctly. Structure stays identical to the reference output (8 planes, 720x1800, 56.3 MB)."
 }
