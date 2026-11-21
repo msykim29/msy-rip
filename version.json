@@ -1,5 +1,5 @@
 {
-  "version": "1.0.45",
+  "version": "1.0.46",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Dither rewritten to match the reference RIP exactly: contiguous dot groups are preserved (no pixel scattering), each sub-row gets its own mask row so vertical banding disappears, every 8-row block produces a different tone pattern so horizontal waves are gone, and the density multiplier is corrected so tone distribution matches the reference."
+  "notes": "Reverted to the 1.0.44 rendering engine, which printed with better resolution. The dither experiment in 1.0.45 lowered effective resolution, so it is rolled back while the remaining banding work continues separately."
 }
