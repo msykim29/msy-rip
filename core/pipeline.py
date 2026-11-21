@@ -439,10 +439,20 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     if _kay is None:
                         continue
                     _g = np.asarray(_kay)[src]
-                    _t = np.clip(_g, 0.0, 1.0) * 8.0
+                    # 21/11 v19 — PM22 TON DAĞILIMI (ölçüm):
+                    #   PM22 satir1: yüksek(>=0x4000) 117/168 = %70
+                    #   bizde aynı satır: 88/183 = %48  -> fazla düşük ton
+                    #   (baskıda "halftone/noktalı" görünümün sebebi)
+                    # PM22 ortalama tonu ~0.70-0.75; bizde 0.55.
+                    # Düzeltme: düşük tonları yukarı çek (gamma 0.7) + min 2 alt-satır
+                    _t01 = np.clip(_g, 0.0, 1.0)
+                    _t01 = np.where(_t01 > 1e-4, np.power(_t01, 0.38), 0.0)
+                    _t = np.clip(_t01, 0.0, 1.0) * 8.0
                     _nf = np.floor(_t).astype(np.int32)
                     _rng2 = np.random.default_rng(7000 + _sl * 31 + p)
                     _nf = np.clip(_nf + (_rng2.random(_t.shape) < (_t - _nf)), 0, 8)
+                    # dolu piksellerde en az 2 alt-satır (PM22 gibi)
+                    _nf = np.where((_g > 1e-4) & (_nf < 2), 2, _nf)
                     _kel = np.zeros(_t.shape, dtype=np.uint32)
                     for _d in range(8):
                         _kel += ((_rng2.random(_t.shape) < (_nf / 8.0))

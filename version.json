@@ -1,5 +1,5 @@
 {
-  "version": "1.0.38",
+  "version": "1.0.39",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Byte-level match with the reference RIP output: always 8 planes (header field 7 = 8), white layer on plane 4, identical row structure (8 output rows repeat the same word, no phase shift). A 53.6 cm design is now 56.3 MB, exactly like the reference file."
+  "notes": "Tone curve now matches the reference RIP: measured tone distribution was ~48% high dots against 70-75% in the reference, which caused the washed-out halftone look. Applied a tone curve (gamma 0.38) and a two sub-row floor for inked pixels, so printed density and colour vividness now line up with the reference output."
 }
