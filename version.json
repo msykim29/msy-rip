@@ -1,5 +1,5 @@
 {
-  "version": "1.0.40",
+  "version": "1.0.41",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Reverted the tone-curve experiment from 1.0.39 (it made prints darker and blotchy). Tone coding is linear again, exactly like 1.0.38 which printed correctly. Structure stays identical to the reference output (8 planes, 720x1800, 56.3 MB)."
+  "notes": "Footer added: version number and clickable www.msy.kim link at the bottom of the window. Installer version is now read automatically from version.json, so the setup wizard no longer shows 1.0."
 }

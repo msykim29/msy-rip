@@ -3,7 +3,22 @@
 ; Sonuç: Output\MSYRip-Setup.exe  (~60-80 MB)
 
 #define MyAppName "MSY Rip"
-#define MyAppVersion "1.0.0"
+; 21/11 MSY: surum version.json'dan otomatik okunur (elle guncelleme yok)
+#define VerFile FileOpen(AddBackslash(SourcePath) + "version.json")
+#define VerLine FileRead(VerFile)
+#sub ParseVer
+  #define Pos Find(VerLine, "\"version\"")
+  #if Pos > 0
+    #define VStart Pos + 11
+    #define VRest Copy(VerLine, VStart, 40)
+    #define QPos Pos("\"", VRest)
+    #define MyAppVersion Copy(VRest, 1, QPos - 1)
+  #endif
+#endsub
+#expr ParseVer
+#if !defined(MyAppVersion) || MyAppVersion == ""
+  #define MyAppVersion "1.0.0"
+#endif
 #define MyAppPublisher "MSY"
 #define MyAppExeName "MSYRip.exe"
 
@@ -11,6 +26,10 @@
 AppId={{8F3C2A10-5B7D-4E92-A1C4-9D6E2F0B7A31}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
+VersionInfoVersion={#MyAppVersion}.0
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 ; MSY isteği: kurulum C: diskine, tek klasör
 DefaultDirName={autopf}\MSYRip

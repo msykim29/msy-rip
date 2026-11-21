@@ -151,6 +151,33 @@ class AnaEkran(QMainWindow):
         ipucu.setStyleSheet("color:#888; font-size:11px;")
         v.addWidget(ipucu)
 
+        # --- alt bilgi: sürüm + web sitesi (21/11 MSY) ---
+        altbilgi = QHBoxLayout()
+        altbilgi.setContentsMargins(0, 2, 0, 2)
+        try:
+            from core.settings import surum_bilgisi
+            _sv = surum_bilgisi()
+        except Exception:
+            _sv = ""
+        if not _sv:
+            try:
+                import json as _j, os as _o
+                _vp = _o.path.join(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))), 'version.json')
+                with open(_vp, encoding='utf-8') as _f:
+                    _sv = str(_j.load(_f).get('version') or '')
+            except Exception:
+                _sv = "1.0.0"
+        self.surum_lbl = QLabel(f"v{_sv}")
+        self.surum_lbl.setStyleSheet("color:#9ca3af; font-size:11px;")
+        altbilgi.addWidget(self.surum_lbl)
+        altbilgi.addStretch(1)
+        self.site_lbl = QLabel('<a href="https://www.msy.kim" style="color:#2563eb;'
+                               'text-decoration:none;font-size:11px;">www.msy.kim</a>')
+        self.site_lbl.setOpenExternalLinks(True)
+        self.site_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+        altbilgi.addWidget(self.site_lbl)
+        v.addLayout(altbilgi)
+
     # ---------------- sürükle-bırak ----------------
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls():

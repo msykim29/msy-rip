@@ -1,0 +1,69 @@
+diff --git a/core/pipeline.py b/core/pipeline.py
+index 307fade..ce051bf 100644
+--- a/core/pipeline.py
++++ b/core/pipeline.py
+@@ -389,6 +389,33 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
+     def _ht(rows_f, seed=0):
+         return (rows_f.clip(0.0, 1.0) * 65535.0).astype(np.uint16)
+ 
++    # ---- PM dither maskeleri (dither.dll RCDATA 101-108) ----
++    try:
++        from . import dither as _dither_mod
++    except Exception:
++        _dither_mod = None
++
++    def _dither_mask_id(slot):
++        return 101 + (int(slot) % 4)
++
++    def _dither_maske(h, w, slot, blok):
++        if _dither_mod is None:
++            yy, xx = np.mgrid[0:h, 0:w]
++            return ((yy * 137 + xx * 71) % 255).astype(np.uint8)
++        return _dither_mod.esik_matrisi(
++            h, w, _dither_mask_id(slot),
++            ofs_x=(blok * 37) % 256, ofs_y=(blok * 53) % 256)
++
++    def _dither_ton(g01, slot, blok):
++        g = np.clip(np.asarray(g01, dtype=np.float32), 0.0, 1.0)
++        if _dither_mod is None:
++            t = g * 8.0
++            n = np.floor(t).astype(np.int32)
++            return np.clip(n + (np.random.random(t.shape) < (t - n)), 0, 8)
++        return _dither_mod.ton_8(g, _dither_mask_id(slot),
++                                 ofs_x=(blok * 37) % 256,
++                                 ofs_y=(blok * 53) % 256)
++
+     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
+ 
+     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
+@@ -439,17 +466,20 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
+                     if _kay is None:
+                         continue
+                     _g = np.asarray(_kay)[src]
+-                    # 21/11 v22 — GERİ DÖNÜŞ: v1.0.38 (MSY onaylı) tam lineer.
+-                    # v1.0.39'daki gamma 0.38 ve v1.0.21'deki eşleme denendi,
+-                    # ikisi de baskıyı bozdu -> v1.0.38 davranışı geri getirildi.
+-                    _t = np.clip(_g, 0.0, 1.0) * 8.0
+-                    _nf = np.floor(_t).astype(np.int32)
+-                    _rng2 = np.random.default_rng(7000 + _sl * 31 + p)
+-                    _nf = np.clip(_nf + (_rng2.random(_t.shape) < (_t - _nf)), 0, 8)
+-                    _kel = np.zeros(_t.shape, dtype=np.uint32)
++                    # 21/11 v23 — PM DITHER MASKESİ (dither.dll RCDATA 101-108).
++                    # PM'in gerçek 256x256 blue-noise eşik matrisi kullanılıyor:
++                    #   n = floor(ton*8) + (kesir > maske/254)
++                    # Böylece her gri seviyede TAM doğru oranda nokta çıkar,
++                    # noktalar kümelenmez -> fotoğraf kalitesi.
++                    _nf = _dither_ton(_g, _sl, p)
++                    _kel = np.zeros(_nf.shape, dtype=np.uint32)
++                    # alt-satır seçimi de maskeden: d. alt-satır dolu ↔
++                    # (maske + 32*d) % 255 < n*32
++                    _m8 = _dither_maske(_nf.shape[0], _nf.shape[1], _sl, p)
+                     for _d in range(8):
+-                        _kel += ((_rng2.random(_t.shape) < (_nf / 8.0))
+-                                 .astype(np.uint32) << np.uint32(2 * _d))
++                        _esik_d = ((_m8.astype(np.int32) + 32 * _d) % 255) / 255.0
++                        _kel += ((_esik_d * 8.0 < _nf).astype(np.uint32)
++                                 << np.uint32(2 * _d))
+                     # PM22: 8 alt-satır aynı kelime dizisi
+                     for _o in range(8):
+                         _hedef_r = 8 * gecerli + _sl + 8 * _o
