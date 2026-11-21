@@ -17,6 +17,7 @@ import threading
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
+    QApplication,
     QAbstractItemView, QButtonGroup, QFileDialog, QHBoxLayout, QHeaderView,
     QLabel, QMainWindow, QMessageBox, QProgressBar, QPushButton, QRadioButton,
     QTableWidget, QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
@@ -154,19 +155,43 @@ class AnaEkran(QMainWindow):
         # --- alt bilgi: sürüm + web sitesi (21/11 MSY) ---
         altbilgi = QHBoxLayout()
         altbilgi.setContentsMargins(0, 2, 0, 2)
+        _sv = ""
+        # 21/11 MSY: surum HER ZAMAN "1.0.x" formatinda gorunmeli.
+        # Paketlenmis exe'te version.json sys._MEIPASS altinda,
+        # exe'nin yaninda veya kaynak kokunde olabilir.
         try:
-            from core.settings import surum_bilgisi
-            _sv = surum_bilgisi()
+            import json as _j, os as _o, sys as _s
+            _adaylar = []
+            if getattr(_s, 'frozen', False):
+                _adb = _o.path.dirname(_s.executable)
+                _adaylar.append(_o.path.join(_adb, 'version.json'))
+                _meip = getattr(_s, '_MEIPASS', None)
+                if _meip:
+                    _adaylar.append(_o.path.join(_meip, 'version.json'))
+            _kok = _o.path.dirname(_o.path.dirname(_o.path.abspath(__file__)))
+            _adaylar.append(_o.path.join(_kok, 'version.json'))
+            for _vp in _adaylar:
+                if _o.path.exists(_vp):
+                    with open(_vp, encoding='utf-8') as _f:
+                        _sv = str(_j.load(_f).get('version') or '').strip()
+                    if _sv:
+                        break
         except Exception:
             _sv = ""
         if not _sv:
+            # son care: exe dosya surumunden oku
             try:
-                import json as _j, os as _o
-                _vp = _o.path.join(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))), 'version.json')
-                with open(_vp, encoding='utf-8') as _f:
-                    _sv = str(_j.load(_f).get('version') or '')
+                import sys as _s2
+                if getattr(_s2, 'frozen', False):
+                    _sv = str(QApplication.applicationVersion() or '').strip()
+                    if _sv in ('', '1.0.0'):
+                        _sv = ""
             except Exception:
-                _sv = "1.0.0"
+                pass
+        if not _sv:
+            _sv = "1.0.0"
+        # "v1.0.41" bicimi (basinda v varsa temizle)
+        _sv = _sv.lstrip('vV')
         self.surum_lbl = QLabel(f"v{_sv}")
         self.surum_lbl.setStyleSheet("color:#9ca3af; font-size:11px;")
         altbilgi.addWidget(self.surum_lbl)
