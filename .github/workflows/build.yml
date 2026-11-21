@@ -31,6 +31,9 @@ jobs:
       - name: Inno Setup kur
         run: choco install innosetup -y --no-progress
 
+      - name: Surum senkronu (version.json -> installer.iss)
+        run: python gen_version_iss.py
+
       - name: Setup paketi olustur
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss

@@ -4,26 +4,9 @@
 
 #define MyAppName "MSY Rip"
 
-; 21/11 MSY: surum version.json'dan otomatik okunur
-#define VerFile AddBackslash(SourcePath) + "version.json"
-#define VerStr ""
-#if FileExists(VerFile)
-  #define VerStr LoadStringFromFile(VerFile)
-#endif
-#sub ParseVer
-  #define P1 Pos(VerStr, '\"version\": \"')
-  #if P1 > 0
-    #define Rest1 Copy(VerStr, P1 + 12, 32)
-    #define P2 Pos(Rest1, '\"')
-    #if P2 > 0
-      #define MyAppVersion Copy(Rest1, 1, P2 - 1)
-    #endif
-  #endif
-#endsub
-#expr ParseVer
-#if !defined(MyAppVersion)
-  #define MyAppVersion "1.0.0"
-#endif
+; 21/11 MSY: surum version.json'dan otomatik okunur.
+; GitHub Actions build sirasinda "gen_version_iss.py" bu satiri gunceller.
+#define MyAppVersion "1.0.41"
 #define MyAppPublisher "MSY"
 #define MyAppExeName "MSYRip.exe"
 
