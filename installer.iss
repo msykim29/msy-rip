@@ -3,20 +3,25 @@
 ; Sonuç: Output\MSYRip-Setup.exe  (~60-80 MB)
 
 #define MyAppName "MSY Rip"
-; 21/11 MSY: surum version.json'dan otomatik okunur (elle guncelleme yok)
-#define VerFile FileOpen(AddBackslash(SourcePath) + "version.json")
-#define VerLine FileRead(VerFile)
+
+; 21/11 MSY: surum version.json'dan otomatik okunur
+#define VerFile AddBackslash(SourcePath) + "version.json"
+#define VerStr ""
+#if FileExists(VerFile)
+  #define VerStr LoadStringFromFile(VerFile)
+#endif
 #sub ParseVer
-  #define Pos Find(VerLine, "\"version\"")
-  #if Pos > 0
-    #define VStart Pos + 11
-    #define VRest Copy(VerLine, VStart, 40)
-    #define QPos Pos("\"", VRest)
-    #define MyAppVersion Copy(VRest, 1, QPos - 1)
+  #define P1 Pos(VerStr, '\"version\": \"')
+  #if P1 > 0
+    #define Rest1 Copy(VerStr, P1 + 12, 32)
+    #define P2 Pos(Rest1, '\"')
+    #if P2 > 0
+      #define MyAppVersion Copy(Rest1, 1, P2 - 1)
+    #endif
   #endif
 #endsub
 #expr ParseVer
-#if !defined(MyAppVersion) || MyAppVersion == ""
+#if !defined(MyAppVersion)
   #define MyAppVersion "1.0.0"
 #endif
 #define MyAppPublisher "MSY"
