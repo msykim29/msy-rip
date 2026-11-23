@@ -1,5 +1,5 @@
 {
-  "version": "1.0.48",
+  "version": "1.0.49",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "PRT writer: bit-spread tone encoding. Dense bits were packed into the first n 2-bit groups of each word, so rows with n<=3 were empty and rows with n>=5 were full - a 4-row pattern that printed as vertical bands. Dense bits are now distributed across all 8 sub-row groups with an x-dependent phase, and the dither mask phase follows the source row instead of restarting per block."
+  "notes": "Reverted the bit-spread experiment from 1.0.48, which increased vertical stripes and waviness. Row addressing and absolute-row dither mask phase from 1.0.47 are kept."
 }

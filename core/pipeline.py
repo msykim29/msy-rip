@@ -509,11 +509,8 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                         _m8 = _dither_maske(_t.shape[0], _t.shape[1], _sl, p).astype(np.float32)
                         _mf = _m8 / 254.0
                     else:
-                        # 23/11 v2: maske satiri KAYNAK satira bagli (src % 256).
-                        # pass_s tekrarinda (ayni kaynak satir 6 kez) ayni maske
-                        # satiri geliyordu -> 6 satirlik dikey bant. Artik her
-                        # tekrar farkli maske satiri alir (mod 256, src farkli).
-                        _rows = np.mod(src, 256).astype(np.int64)
+                        # 23/11 v5: mutlak cikti satiri (v1.0.47 davranisi).
+                        _rows = np.mod(_r_mutlak, 256).astype(np.int64)
                         _cols = np.arange(W_PRT, dtype=np.int64) % 256
                         _mf = (_maske_tam[np.ix_(_rows, _cols)].astype(np.float32)
                                / 254.0)                 # 0..1 eşik
@@ -526,7 +523,6 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # Formül: n = round(ton*8) ve maske ile ±1 dither:
                     #   kesir > mf  -> n+1,  değilse n
                     # Bu PM22'nin dağılımını (4,5,6,7) birebir verir.
-                    _cols_x = np.arange(_t.shape[1], dtype=np.int64)
                     _t8v = _t                               # 0..8 (ton*8)
                     _nf2 = np.floor(_t8v).astype(np.int32)
                     _nf2 = _nf2 + ((_t8v - _nf2) > _mf).astype(np.int32)
@@ -553,23 +549,15 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # Cozum: her kaynak satir KENDI 8 alt-satirina yazilir
                     # (wrap, cakisma YOK) ve kelime deseni alt-satira gore
                     # tohumlanir -> dikey bant kirilir.
-                    # 23/11 v4 (BASKI KANITI: 2. satir DOLU, 4/5/6 BOS):
-                    # TEK yazim dogru; ama _kel'de dolu bitler ILK n ciftte
-                    # toplaniyor (n=5 icin 0x0155) -> n<=3 satirlari BOS,
-                    # n>=5 satirlari DOLU -> 4 satirlik desen = DIKEY BANT.
-                    # COZUM bit-spread: dolu bitler 8 alt-satira DAGITILIR
-                    # (n=5 -> 5 farkli cift), her x icin farkli sira (tohum x'e bagli).
-                    _rng_b = np.random.default_rng(4_242 + _sl * 131 + p * 977)
-                    _sira = _rng_b.permuted(np.arange(8))       # global sira
-                    _kel2 = np.zeros(_t.shape, dtype=np.uint32)
-                    for _idx in range(8):
-                        # her alt-satir icin x'e bagli faz: desen kayar
-                        _dolu = _nf2 > _idx
-                        _hedef_bit = (_sira[_idx] + (_cols_x % 8)) % 8
-                        _kel2 += (_dolu.astype(np.uint32) << (2 * _hedef_bit).astype(np.uint32))
+                    # 23/11 v5 (MSY: "dikey cizgiler ve dalgalar ARTTI"):
+                    # bit-spread DENEMESI GERI ALINDI. Dolu bitleri alt-satirlara
+                    # dagitmak her x'te farkli desen uretiyordu ve PM22'nin
+                    # kodlamasindan uzaklasiyordu -> artefakt artti.
+                    # v1.0.47 davranisi: duz bit kodlama (ilk n cift dolu).
+                    # Tek yazim, cakisma yok: her kaynak satir kendi bloguna.
                     _hedef_r = 8 * gecerli + _sl
                     _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
-                    plane[_hedef_r[_ok]] = _kel2[_ok].astype('>u2')
+                    plane[_hedef_r[_ok]] = _kel[_ok].astype('>u2')
             # 20/11: beyaz katman (slot 4) — alpha maskesi, 8 alt-satir
             if W_ is not None:
                 # 21/11 v18 (PM22 ölçümü): beyaz slot4, 8 alt-satır aynı,
@@ -578,13 +566,10 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                 _vm = _ws > 0.5
                 # 23/11 v3: beyaz da HER satirin kendi 8 alt-satirina yazilir
                 # (onceden yalniz 1/8 dolu -> kalan satirlarda bosluk = cizgi).
-                for _o in range(8):
-                    _idx2 = 8 * np.arange(_vm.shape[0], dtype=np.intp) + 4 + 8 * _o
-                    _ok = _idx2 < H_PAD
-                    if not _ok.any():
-                        continue
-                    plane[_idx2[_ok]] = ((_vm[_ok].astype(np.uint32))
-                                         * np.uint32(65535)).astype('>u2')
+                _idx2 = 8 * np.arange(_vm.shape[0], dtype=np.intp) + 4
+                _ok = _idx2 < H_PAD
+                plane[_idx2[_ok]] = ((_vm[_ok].astype(np.uint32))
+                                     * np.uint32(65535)).astype('>u2')
             f.write(plane.tobytes())
             del plane
     if W_ is not None:
