@@ -1,5 +1,5 @@
 {
-  "version": "1.0.49",
+  "version": "1.1.0",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Reverted the bit-spread experiment from 1.0.48, which increased vertical stripes and waviness. Row addressing and absolute-row dither mask phase from 1.0.47 are kept."
+  "notes": "Profile management (create/delete own machine profiles, PM22-style) and a fix for the crash when selecting an ICC colour profile. Bundled the PM22 Dither16 threshold masks (130 files, 512x512) plus its Ditherparams.xml so the dither engine can use the reference masks instead of the extrapolated ones."
 }

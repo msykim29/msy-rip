@@ -159,3 +159,96 @@ def uygula(ayar, makine_adi):
     ayar.spot_adi = m["spot_adi"]
     ayar.renk_yuzde = dict(m["renk_yuzde"])
     return True
+
+
+# ---------------------------------------------------------------------------
+# 23/11 MSY: KULLANICI PROFILLERI (PM22 "Profile Manager" karsiligi)
+# Ozel profiller kullanici klasorunde saklanir:
+#   Windows: %APPDATA%\MSYRip\profiles\*.json
+#   Linux/macOS: ~/.config/MSYRip/profiles/*.json
+# Fabrika profilleri (MAKINELER) her zaman yuklenir; kullanici profilleri
+# ustune eklenir (ayni ad varsa kullanici profili kazanir).
+# ---------------------------------------------------------------------------
+
+def _profil_dizini() -> str:
+    import os
+    try:
+        from core.settings import profil_klasoru
+        d = os.path.join(profil_klasoru(), 'machines')
+    except Exception:
+        d = os.path.join(os.path.expanduser('~'), '.config', 'MSYRip', 'profiles', 'machines')
+    try:
+        os.makedirs(d, exist_ok=True)
+    except Exception:
+        pass
+    return d
+
+
+def _profil_yolu(ad: str) -> str:
+    import os
+    import re as _re
+    guvenli = _re.sub(r'[^A-Za-z0-9._ -]+', '_', ad).strip() or 'profil'
+    return os.path.join(_profil_dizini(), guvenli + '.json')
+
+
+def profil_kaydet(ad: str, veri: dict) -> bool:
+    """Kullanici profilini JSON olarak kaydet ve MAKINELER'e ekle."""
+    import json
+    try:
+        with open(_profil_yolu(ad), 'w', encoding='utf-8') as f:
+            json.dump(veri, f, indent=2, ensure_ascii=False)
+        MAKINELER[ad] = veri
+        return True
+    except Exception:
+        return False
+
+
+def profil_sil(ad: str) -> bool:
+    """Kullanici profilini sil (fabrika profili silinemez)."""
+    import os
+    try:
+        if not ozel_profil_mi(ad):
+            return False
+        yol = _profil_yolu(ad)
+        if os.path.exists(yol):
+            os.remove(yol)
+        MAKINELER.pop(ad, None)
+        return True
+    except Exception:
+        return False
+
+
+def ozel_profil_mi(ad: str) -> bool:
+    """Verilen ad kullanici tarafindan olusturulmus bir profil mi?"""
+    import os
+    try:
+        return os.path.exists(_profil_yolu(ad))
+    except Exception:
+        return False
+
+
+def kullanici_profillerini_yukle():
+    """Baslangicta kullanici profillerini MAKINELER'e ekle."""
+    import glob
+    import json
+    import os
+    try:
+        for yol in glob.glob(os.path.join(_profil_dizini(), '*.json')):
+            try:
+                with open(yol, encoding='utf-8') as f:
+                    veri = json.load(f)
+                ad = os.path.splitext(os.path.basename(yol))[0]
+                # dosya adi ile aciklama adi farkliysa dosya adi gecerli
+                veri.setdefault('aciklama', 'Kullanici profili')
+                MAKINELER[ad] = veri
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+
+# modul yuklenirken kullanici profillerini de ekle
+try:
+    kullanici_profillerini_yukle()
+except Exception:
+    pass

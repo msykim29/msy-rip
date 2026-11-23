@@ -56,6 +56,16 @@ class AyarlarPenceresi(QDialog):
         b_makine.setStyleSheet("background:#2563eb;color:white;padding:6px 16px;border-radius:5px;")
         b_makine.clicked.connect(self._makine_uygula)
         h0.addWidget(b_makine)
+        # 23/11 MSY: PM22'deki gibi KULLANICI PROFILI olusturma
+        # ("Mevcut ayarlari yeni profil olarak kaydet")
+        b_kaydet = QPushButton("Profili Kaydet")
+        b_kaydet.setToolTip("Mevcut ayarlari yeni bir makine profili olarak kaydet")
+        b_kaydet.clicked.connect(self._profil_olustur)
+        h0.addWidget(b_kaydet)
+        b_sil = QPushButton("Sil")
+        b_sil.setToolTip("Secili OZEL profili sil (fabrika profilleri silinemez)")
+        b_sil.clicked.connect(self._profil_sil)
+        h0.addWidget(b_sil)
         self.makine_combo.currentTextChanged.connect(self._makine_bilgi)
         # makine secimi degisir degimez tum ayarlar otomatik guncellenir
         self.makine_combo.currentIndexChanged.connect(self._makine_uygula)
@@ -218,20 +228,106 @@ class AyarlarPenceresi(QDialog):
                 f"Bu profil {b.get('renk_uzayi')} — CMYK yazıcı profili gerekli.")
             return
         # Profili kurulum klasorundeki profiles/ altina kopyala:
-        # masaustundeki orijinal silinse bile program kullanmaya devam eder.
-        import shutil
-        from core.settings import profil_klasoru
-        hedef = os.path.join(profil_klasoru(), os.path.basename(yol))
+        # 23/11 MSY: "profil secince uygulama kapaniyor" — kopyalama/dialog
+        # zinciri korumasizdi. Artik her adim korumali; hata olsa da pencere
+        # KAPANMAZ, kullaniciya sebep gosterilir.
         try:
-            if os.path.abspath(yol) != os.path.abspath(hedef):
-                shutil.copy2(yol, hedef)
-            self.icc_edit.setText(os.path.basename(yol))
-            QMessageBox.information(
-                self, "Profil kaydedildi",
-                f"Profil program klasörüne kopyalandı:\n{hedef}\n\n"
-                "Orijinal dosyayı silebilirsin — rip yine çalışır.")
+            import shutil
+            from core.settings import profil_klasoru
+            klasor = profil_klasoru()
+            try:
+                os.makedirs(klasor, exist_ok=True)
+            except Exception:
+                pass
+            hedef = os.path.join(klasor, os.path.basename(yol))
+            try:
+                if os.path.abspath(yol) != os.path.abspath(hedef):
+                    shutil.copy2(yol, hedef)
+                self.icc_edit.setText(os.path.basename(yol))
+            except Exception as e:
+                self.icc_edit.setText(os.path.abspath(yol))
+                QMessageBox.warning(
+                    self, "Profil kopyalanamadi",
+                    "Profil klasore kopyalanamadi (" + str(e) + ").\n"
+                    "Mutlak yol kullanilacak.")
+                return
+            try:
+                QMessageBox.information(
+                    self, "Profil kaydedildi",
+                    "Profil program klasorune kopyalandi:\n" + hedef +
+                    "\n\nOrijinal dosyayi silebilirsin - rip yine calisir.")
+            except Exception:
+                pass
         except Exception as e:
-            self.icc_edit.setText(yol)
+            try:
+                self.icc_edit.setText(os.path.abspath(yol))
+                QMessageBox.warning(self, "Profil", "Beklenmeyen hata: " + str(e))
+            except Exception:
+                pass
+
+    # ------------------------------------------------------------------
+    # 23/11 MSY: PROFIL OLUSTURMA (PM22 "Profile Manager" benzeri)
+    # Kullanici mevcut ayarlari yeni bir profil olarak kaydedebilir;
+    # ozel profiller kullanici klasorunde JSON olarak saklanir.
+    # ------------------------------------------------------------------
+    def _profil_olustur(self):
+        try:
+            from PyQt6.QtWidgets import QInputDialog
+            ad, ok = QInputDialog.getText(
+                self, "Yeni makine profili", "Profil adi:")
+            if not ok or not ad.strip():
+                return
+            ad = ad.strip()
+            from core.machines import profil_kaydet
+            veri = {
+                'aciklama': 'Kullanici profili',
+                'kanal_sirasi': list(self.ayar.kanal_sirasi),
+                'mirror': True,
+                'pass_sayisi': int(self.ayar.pass_sayisi),
+                'prt_bant_px': int(self.ayar.prt_bant_px),
+                'prt_genislik': int(self.ayar.prt_genislik),
+                'prt_yukseklik': int(self.ayar.prt_yukseklik),
+                'halftone_hucre': int(self.ayar.halftone_hucre),
+                'halftone_seviye': int(self.ayar.halftone_seviye),
+                'spot_adi': self.ayar.spot_adi,
+                'renk_yuzde': dict(self.ayar.renk_yuzde),
+            }
+            if profil_kaydet(ad, veri):
+                if ad not in [self.makine_combo.itemText(i)
+                              for i in range(self.makine_combo.count())]:
+                    self.makine_combo.addItem(ad)
+                self.makine_combo.setCurrentText(ad)
+                QMessageBox.information(
+                    self, "Profil kaydedildi",
+                    "Profil olusturuldu:\n" + ad)
+        except Exception as e:
+            try:
+                QMessageBox.warning(self, "Profil", "Kaydedilemedi: " + str(e))
+            except Exception:
+                pass
+
+    def _profil_sil(self):
+        try:
+            ad = self.makine_combo.currentText()
+            from core.machines import profil_sil, ozel_profil_mi
+            if not ozel_profil_mi(ad):
+                QMessageBox.warning(
+                    self, "Silinemez",
+                    "Fabrika profilleri silinemez. Sadece kendi olusturdugunuz "
+                    "profiller silinebilir.")
+                return
+            from PyQt6.QtWidgets import QMessageBox as _MB
+            if _MB.question(self, "Sil", "'" + ad + "' silinsin mi?") != _MB.StandardButton.Yes:
+                return
+            if profil_sil(ad):
+                i = self.makine_combo.currentIndex()
+                self.makine_combo.removeItem(i)
+                QMessageBox.information(self, "Silindi", "Profil silindi.")
+        except Exception as e:
+            try:
+                QMessageBox.warning(self, "Profil", "Silinemedi: " + str(e))
+            except Exception:
+                pass
 
     def _cikis_sec(self):
         d = QFileDialog.getExistingDirectory(self, "Çıkış klasörü seç")

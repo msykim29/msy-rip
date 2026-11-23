@@ -96,3 +96,43 @@ def ton_8(kanal_016: np.ndarray, mask_id: int = 101,
     # 21/11: eşikleme 255 tabanlı (maske 0..254) — PM ile aynı oranı verir
     n = n + (kesir * 255.0 > esik).astype(np.int32)
     return np.clip(n, 0, 8)
+
+
+# ---------------------------------------------------------------------------
+# 23/11 MSY: PM22 "Dither16" maskeleri (Windows'tan alindi)
+# C:\Program Files\SAi\SAi Production Suite 22\Program\Dither16
+#   STOCH0Mask_1x1.bin ... STOCH9Mask_*
+#   Her dosya: 4 bayt baslik + 512x512 uint16 (524.292 bayt), deger 1..4093
+# Ditherparams.xml (PM22):
+#   DitherParams ID=4 -> seviyeler 0.28 / 0.56 / 1.00
+#   AntiClogLevel=1, NoiseLevel=2.0
+# ---------------------------------------------------------------------------
+
+DITHER16_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'masks16')
+
+_D16_CACHE: dict[str, np.ndarray] = {}
+
+
+def d16_liste() -> list[str]:
+    """Kullanilabilir PM22 Dither16 maske adlarini dondur."""
+    try:
+        return sorted(f for f in os.listdir(DITHER16_DIR) if f.lower().endswith('.bin'))
+    except Exception:
+        return []
+
+
+def d16_yukle(ad: str = 'STOCH0Mask_1x1.bin') -> np.ndarray | None:
+    """PM22 Dither16 maskesini yukle (512x512 uint16, 1..4093)."""
+    if ad in _D16_CACHE:
+        return _D16_CACHE[ad]
+    yol = os.path.join(DITHER16_DIR, ad)
+    try:
+        with open(yol, 'rb') as f:
+            ham = f.read()
+        if len(ham) < 4 + 512 * 512 * 2:
+            return None
+        m = np.frombuffer(ham[4:4 + 512 * 512 * 2], dtype='<u2').reshape(512, 512)
+        _D16_CACHE[ad] = m
+        return m
+    except Exception:
+        return None

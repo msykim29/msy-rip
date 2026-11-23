@@ -40,7 +40,10 @@ a = Analysis(
     datas=[('resources/profiles/Renk Profili.icc', 'resources/profiles'),
            ('version.json', '.'),
            ('core/masks/mask101.bin', 'core/masks'),
-           ('core/masks/mask102.bin', 'core/masks')],
+           ('core/masks/mask102.bin', 'core/masks'),
+           # 23/11: PM22 Dither16 maskeleri (130 dosya, 512x512 uint16)
+           ('core/masks16', 'core/masks16'),
+           ('resources/Ditherparams.xml', 'resources')],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
