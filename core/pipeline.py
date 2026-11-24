@@ -302,10 +302,32 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         # Dogru UCR/GCR: renk kanallarindan K kadar cikar, K'yi ayri bas.
         _K = cmyk[:, :, 3].astype(np.float32)
         cmyk = cmyk.copy()
+        # 24/11 MSY: UCR orani ayarlanabilir (0.6 -> 1.0). Yuksek oran =
+        # renklerden daha cok siyah cikarilir (daha temiz renk, daha az camur).
+        _ucr = float(getattr(ayar, 'ucr_orani', 0.6) or 0.6)
         for _i in range(3):
             cmyk[:, :, _i] = np.clip(
-                cmyk[:, :, _i].astype(np.float32) - _K * 0.6, 0, 255).astype(np.uint8)
+                cmyk[:, :, _i].astype(np.float32) - _K * _ucr, 0, 255).astype(np.uint8)
         log("  siyah: K -> C+M+Y'den UCR ile cikarildi (renk korunur)")
+    # 24/11 MSY (KRITIK — "renkler cok koyu ve karanlik"):
+    # TOPLAM MÜREKKEP LİMİTİ (Total Ink Limit). DTF'de 4 kanal ust uste
+    # basildiginda toplam murekkep %300-400'e cikabiliyor -> baski koyu ve
+    # camur gibi. PM22/PM19 kendi profilinde TIL uyguluyor; biz hic
+    # uygulamiyorduk. Varsayilan %250 (DTF icin yaygin), kullanici
+    # `toplam_murekkep_limiti` ile degistirebilir.
+    _til = float(getattr(ayar, 'toplam_murekkep_limiti', 250.0) or 250.0)
+    if _til > 0:
+        _cm = cmyk.astype(np.float32)
+        _top = _cm[:, :, :4].sum(axis=2)
+        _fazla = _top > _til
+        if _fazla.any():
+            _olcek = np.ones_like(_top)
+            _olcek[_fazla] = _til / np.maximum(_top[_fazla], 1e-6)
+            for _i in range(4):
+                _cm[:, :, _i] = _cm[:, :, _i] * _olcek
+            cmyk = np.clip(_cm, 0, 255).astype(np.uint8)
+            log(f"  toplam murekkep limiti: %{_til:.0f} uygulandi "
+                f"({int(_fazla.sum()):,} piksel kisildi)")
     yzd = ayar.renk_yuzde
     for i, ad in enumerate(('C', 'M', 'Y', 'K')):
         p = float(yzd.get(ad, 100)) / 100.0

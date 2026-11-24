@@ -67,6 +67,11 @@ class Ayarlar:
     halftone_seviye: int = 4     # 2 veya 4
     halftone_tur: str = 'sofm'   # kullanilmiyor (ton kodlama) — eski ayarlarla uyum
     murekkep_limiti: float = 1.0   # 0..1 — ton->nokta cevriminde tepe doygunluk
+    # 24/11 MSY: toplam murekkep limiti (%) — DTF icin ~%250.
+    # 4 kanal ust uste binince baski koyu/camur oluyordu; PM22 de limit uygular.
+    toplam_murekkep_limiti: float = 250.0
+    # 24/11 MSY: UCR orani (0..1) — siyahi C/M/Y'den ne kadar cikaracagi
+    ucr_orani: float = 0.6
 
     # 16/11/2026: makine profili
     makine: str = ''             # core/machines.py MAKINELER anahtarı

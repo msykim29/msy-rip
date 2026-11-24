@@ -118,7 +118,7 @@ class AyarlarPenceresi(QDialog):
         from PyQt6.QtWidgets import QSlider
         from PyQt6.QtCore import Qt as _Qt
         g2b = QGroupBox("2b) Renk doygunlugu (tum renkler)")
-        h2b = QHBoxLayout(g2b)
+        h2b = QHBoxLayout()
         self.doygun_slider = QSlider(_Qt.Orientation.Horizontal)
         self.doygun_slider.setRange(50, 120)
         self.doygun_slider.setValue(int(round(float(getattr(self.ayar, 'murekkep_limiti', 1.0)) * 100)))
@@ -127,6 +127,33 @@ class AyarlarPenceresi(QDialog):
             lambda v: self.doygun_lbl.setText(f"%{v}"))
         h2b.addWidget(self.doygun_slider, 1)
         h2b.addWidget(self.doygun_lbl)
+        v.addWidget(g2b)
+        # 24/11 MSY: toplam murekkep limiti + UCR (koyuluk ayarlari)
+        h2c = QHBoxLayout()
+        self.til_spin = QSpinBox()
+        self.til_spin.setRange(100, 400)
+        self.til_spin.setSuffix(" %")
+        self.til_spin.setValue(int(float(getattr(self.ayar, 'toplam_murekkep_limiti', 250.0))))
+        self.til_spin.setToolTip(
+            "Toplam murekkep limiti (C+M+Y+K). DTF icin ~%250 onerilir.\n"
+            "Dusuk deger = daha acik baskı.")
+        h2c.addWidget(QLabel("Toplam mürekkep limiti:"))
+        h2c.addWidget(self.til_spin)
+        h2c.addSpacing(16)
+        self.ucr_spin = QDoubleSpinBox()
+        self.ucr_spin.setRange(0.0, 1.0)
+        self.ucr_spin.setSingleStep(0.1)
+        self.ucr_spin.setDecimals(1)
+        self.ucr_spin.setValue(float(getattr(self.ayar, 'ucr_orani', 0.6)))
+        self.ucr_spin.setToolTip(
+            "UCR orani: siyahi C/M/Y'den ne kadar cikaracagi (0-1).\n"
+            "Yuksek = daha temiz renk, daha az camur.")
+        h2c.addWidget(QLabel("UCR oranı:"))
+        h2c.addWidget(self.ucr_spin)
+        h2c.addStretch(1)
+        v2b = QVBoxLayout(g2b)
+        v2b.addLayout(h2b)
+        v2b.addLayout(h2c)
         v.addWidget(g2b)
 
         # 3) ICC profili
@@ -368,6 +395,8 @@ class AyarlarPenceresi(QDialog):
         # 24/11 MSY: profil kullan/kullanma isaretlemesi
         try:
             self.ayar.icc_aktif = bool(self.icc_aktif.isChecked())
+            self.ayar.toplam_murekkep_limiti = float(self.til_spin.value())
+            self.ayar.ucr_orani = float(self.ucr_spin.value())
             self.ayar.icc_bpc = bool(self.icc_bpc_chk.isChecked())
             self.ayar.icc_cmyk_donusum = bool(self.icc_cmyk_chk.isChecked())
         except Exception:
