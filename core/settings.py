@@ -137,8 +137,35 @@ def profil_klasoru() -> str:
     else:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         kaynak = os.path.join(base, 'resources', 'profiles')
-    d = os.path.join(base, 'profiles')
-    os.makedirs(d, exist_ok=True)
+    # 24/11 MSY (KRITIK): kurulum klasoru Program Files -> YAZILAMAZ.
+    # `os.makedirs(exist_ok=True)` ve profil kopyalama WinError 5 (Erisim
+    # engellendi) firlatiyordu. Artik yazilabilir mi diye denenir; yazilamiyorsa
+    # kullanici klasorune dusulur (%APPDATA%\MSYRip\profiles).
+    adaylar = []
+    try:
+        adaylar.append(os.path.join(base, 'profiles'))
+    except Exception:
+        pass
+    try:
+        _appdata = os.environ.get('APPDATA') or os.path.expanduser('~/.config')
+        adaylar.append(os.path.join(_appdata, 'MSYRip', 'profiles'))
+    except Exception:
+        adaylar.append(os.path.join(os.path.expanduser('~'), '.msyrip', 'profiles'))
+
+    d = adaylar[0]
+    for _a in adaylar:
+        try:
+            os.makedirs(_a, exist_ok=True)
+            # yazma denemesi (Program Files'ta makedirs mevcut olsa da yazilamaz)
+            _test = os.path.join(_a, '.yazma_testi')
+            with open(_test, 'w') as _f:
+                _f.write('ok')
+            os.remove(_test)
+            d = _a
+            break
+        except Exception:
+            continue
+
     try:
         if os.path.isdir(kaynak):
             for _ad in os.listdir(kaynak):

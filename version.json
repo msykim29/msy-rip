@@ -1,5 +1,5 @@
 {
-  "version": "1.1.1",
+  "version": "1.1.2",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Update download progress bar (the window no longer freezes while downloading) and a crash log (crash.log) so unexpected errors can be diagnosed. Colour profile section now has Use / Do not use and Black point compensation toggles, plus an option to also apply the profile to CMYK files."
+  "notes": "Fixed the permission error on rip and on profile selection: the profiles folder lives under Program Files, which is read-only, so the app now falls back to the writable user folder (%APPDATA%)."
 }

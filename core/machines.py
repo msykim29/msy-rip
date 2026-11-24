@@ -171,6 +171,7 @@ def uygula(ayar, makine_adi):
 # ---------------------------------------------------------------------------
 
 def _profil_dizini() -> str:
+    """Kullanici profilleri dizini (yazilabilir olmak ZORUNDA)."""
     import os
     try:
         from core.settings import profil_klasoru
@@ -179,9 +180,20 @@ def _profil_dizini() -> str:
         d = os.path.join(os.path.expanduser('~'), '.config', 'MSYRip', 'profiles', 'machines')
     try:
         os.makedirs(d, exist_ok=True)
+        _t = os.path.join(d, '.yazma_testi')
+        with open(_t, 'w') as _f:
+            _f.write('ok')
+        os.remove(_t)
+        return d
     except Exception:
-        pass
-    return d
+        # Program Files yazilamaz -> kullanici klasoru
+        try:
+            _ap = os.environ.get('APPDATA') or os.path.expanduser('~/.config')
+            d2 = os.path.join(_ap, 'MSYRip', 'profiles', 'machines')
+            os.makedirs(d2, exist_ok=True)
+            return d2
+        except Exception:
+            return d
 
 
 def _profil_yolu(ad: str) -> str:
