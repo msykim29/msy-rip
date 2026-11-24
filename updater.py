@@ -12,7 +12,7 @@ import sys
 import tempfile
 import urllib.request
 
-SURUM = "1.1.0"
+SURUM = "1.1.1"
 
 # MSY: repo adı GitHub'a yüklerken buraya yazılacak
 REPO = "msykim29/msy-rip"
@@ -59,8 +59,16 @@ def indir_ve_kur(url: str, ilerleme=None) -> bool:
                     break
                 f.write(parca)
                 inen += len(parca)
-                if ilerleme and toplam:
-                    ilerleme(int(inen * 100 / toplam))
+                # 24/11 MSY: callback (inen_bayt, toplam_bayt) imzasina cevrildi
+                # (eski tek argumanli yuzde cagrisi UI tarafindaki yeni
+                #  ilerleme cubugu ile uyumsuzdu).
+                if ilerleme:
+                    try:
+                        ilerleme(inen, toplam)
+                    except TypeError:
+                        # eski imza: yuzde
+                        if toplam:
+                            ilerleme(int(inen * 100 / toplam))
 
         if sys.platform.startswith('win'):
             subprocess.Popen([hedef, '/SILENT', '/CLOSEAPPLICATIONS'],

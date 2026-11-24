@@ -178,7 +178,8 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         # profil uzerinden donusturulur (kaynak = TIF'in gomulu profili veya
         # varsayilan CMYK; hedef = kullanicinin yukledigi yazici profili).
         _profil_donusum = False
-        if ayar.icc_yol and getattr(ayar, 'icc_cmyk_donusum', True):
+        if (ayar.icc_yol and bool(getattr(ayar, 'icc_aktif', True))
+                and getattr(ayar, 'icc_cmyk_donusum', True)):
             try:
                 from core.settings import ayarlar_profil_yolu
                 _dst_yol = ayarlar_profil_yolu(ayar.icc_yol)
@@ -234,8 +235,11 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             + (" + renk profili uygulandi" if _profil_donusum else ""))
     else:
         rgb = rgba[:, :, :3]
+        # 24/11 MSY: "renk profilini kullan / kullanma" anahtari.
+        # Isaretsizse ICC yolu dolu olsa da donusum YAPILMAZ.
+        _icc_kullan = bool(getattr(ayar, 'icc_aktif', True)) and bool(ayar.icc_yol)
         cmyk = icc_mod.rgb_to_cmyk(
-            rgb, ayar.icc_yol or None,
+            rgb, (ayar.icc_yol or None) if _icc_kullan else None,
             intent=ayar.icc_intent, bpc=bool(ayar.icc_bpc))
         # 17/11: seffaf bolgelerde murekkep YOK (alpha ile maskele) —
         # onceden seffaf arka plan K=1 uretip her yeri murekkeple dolduruyordu
@@ -243,8 +247,10 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         if not _al.all():
             cmyk = cmyk.copy()
             cmyk[~_al] = 0
-        log(f"  CMYK dönüşümü tamam (profil: {os.path.basename(ayar.icc_yol) if ayar.icc_yol else 'basit'}"
-             f"{' + alpha maske' if not _al.all() else ''})")
+        _prf = (os.path.basename(ayar.icc_yol)
+                if (_icc_kullan and ayar.icc_yol) else 'basit (profil KAPALI)')
+        log(f"  CMYK dönüşümü tamam (profil: {_prf}"
+            f"{' + alpha maske' if not _al.all() else ''})")
 
     # 17/11 PM19: siyah = zengin siyah (C+M+Y). K kanali yazilmadiginda
     # K murekkebi C/M/Y'ye dagitilir (undercolor), yoksa siyah cizgiler

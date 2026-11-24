@@ -49,6 +49,9 @@ class Ayarlar:
     # PM22 de bu dönüşümü YAPMIYOR (kanalları ham okuyor).
     # Varsayılan KAPALI; kullanıcı Ayarlar'dan açabilir.
     icc_cmyk_donusum: bool = False
+    # 24/11 MSY: "renk profilini kullan / kullanma" isaretlemesi.
+    # False -> ICC yolu dolu olsa bile donusum YAPILMAZ (ham RGB->CMYK).
+    icc_aktif: bool = True
 
     # 4) Spot ismi
     spot_adi: str = 'Spot_1'

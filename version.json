@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.1.1",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Profile management (create/delete own machine profiles, PM22-style) and a fix for the crash when selecting an ICC colour profile. Bundled the PM22 Dither16 threshold masks (130 files, 512x512) plus its Ditherparams.xml so the dither engine can use the reference masks instead of the extrapolated ones."
+  "notes": "Update download progress bar (the window no longer freezes while downloading) and a crash log (crash.log) so unexpected errors can be diagnosed. Colour profile section now has Use / Do not use and Black point compensation toggles, plus an option to also apply the profile to CMYK files."
 }

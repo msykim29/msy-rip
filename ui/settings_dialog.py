@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
     QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QMessageBox, QPushButton, QSpinBox, QVBoxLayout,
@@ -130,13 +131,32 @@ class AyarlarPenceresi(QDialog):
 
         # 3) ICC profili
         g3 = QGroupBox("3) Renk profili (ICC)")
-        h3 = QHBoxLayout(g3)
+        v3 = QVBoxLayout(g3)
+        h3 = QHBoxLayout()
         self.icc_edit = QLineEdit(self.ayar.icc_yol)
         self.icc_edit.setReadOnly(True)
         h3.addWidget(self.icc_edit, 1)
         b_icc = QPushButton("Import…")
         b_icc.clicked.connect(self._icc_sec)
         h3.addWidget(b_icc)
+        # 24/11 MSY: "renk profilini kullan / kullanma" isaretlemesi
+        h3b = QHBoxLayout()
+        self.icc_aktif = QCheckBox("Renk profilini KULLAN")
+        self.icc_aktif.setChecked(bool(getattr(self.ayar, 'icc_aktif', True)))
+        self.icc_aktif.setToolTip(
+            "Isaretli: RGB->CMYK donusumu ICC profiliyle yapilir\n"
+            "Isaretsiz: profil yok sayilir (hizli, renkler farkli cikabilir)")
+        h3b.addWidget(self.icc_aktif)
+        self.icc_bpc_chk = QCheckBox("Siyah nokta telafisi (BPC)")
+        self.icc_bpc_chk.setChecked(bool(getattr(self.ayar, 'icc_bpc', True)))
+        h3b.addWidget(self.icc_bpc_chk)
+        h3b.addStretch(1)
+        # ICC profili CMYK TIF'lerde de uygulanacak mi?
+        self.icc_cmyk_chk = QCheckBox("CMYK dosyalarda da uygula")
+        self.icc_cmyk_chk.setChecked(bool(getattr(self.ayar, 'icc_cmyk_donusum', False)))
+        h3b.addWidget(self.icc_cmyk_chk)
+        v3.addLayout(h3)
+        v3.addLayout(h3b)
         v.addWidget(g3)
 
         # 4) Spot ismi + pass
@@ -345,6 +365,13 @@ class AyarlarPenceresi(QDialog):
         self.ayar.renk_yuzde = {k: sb.value() for k, sb in self.yuzde.items()}
         self.ayar.murekkep_limiti = self.doygun_slider.value() / 100.0
         self.ayar.icc_yol = self.icc_edit.text().strip()
+        # 24/11 MSY: profil kullan/kullanma isaretlemesi
+        try:
+            self.ayar.icc_aktif = bool(self.icc_aktif.isChecked())
+            self.ayar.icc_bpc = bool(self.icc_bpc_chk.isChecked())
+            self.ayar.icc_cmyk_donusum = bool(self.icc_cmyk_chk.isChecked())
+        except Exception:
+            pass
         self.ayar.spot_adi = self.spot_edit.text().strip() or 'Spot_1'
         self.ayar.pass_sayisi = int(self.pass_spin.value())
         self.ayar.halftone_hucre = int(self.hucre_spin.value())

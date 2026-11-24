@@ -58,6 +58,40 @@ class RipThread(QThread):
         self.bitti.emit(sonuc)
 
 
+class IndirmeThread(QThread):
+    """24/11 MSY: guncelleme indirmesini ARKA PLANDA yapar.
+
+    Eski kod `updater.indir_ve_kur()` fonksiyonunu dogrudan cagiriyordu ->
+    ana (arayuz) is parcaciginda 111 MB indirme boyunca pencere DONUYORDU ve
+    ilerleme gorunmuyordu. Artik thread + yuzde sinyali.
+    """
+    ilerleme = pyqtSignal(int, float, float)   # (yuzde, inen_mb, toplam_mb)
+    bitti = pyqtSignal(bool, str)
+
+    def __init__(self, url, ebeveyn=None):
+        super().__init__(ebeveyn)
+        self.url = url
+        self._iptal = False
+
+    def iptal(self):
+        self._iptal = True
+
+    def run(self):
+        def _cb(inen, toplam):
+            if self._iptal:
+                return
+            mb_in = inen / (1024 * 1024)
+            mb_top = (toplam or 0) / (1024 * 1024)
+            yuzde = int(100 * inen / toplam) if toplam else 0
+            self.ilerleme.emit(yuzde, mb_in, mb_top)
+
+        try:
+            ok = updater.indir_ve_kur(self.url, ilerleme=_cb)
+            self.bitti.emit(bool(ok), '')
+        except Exception as e:
+            self.bitti.emit(False, str(e)[:200])
+
+
 class AnaEkran(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -344,17 +378,52 @@ class AnaEkran(QMainWindow):
             QMessageBox.StandardButton.Yes)
         if cevap != QMessageBox.StandardButton.Yes:
             return
-        self._durum("Güncelleme indiriliyor…")
-        ok = updater.indir_ve_kur(bilgi.get('url', ''))
-        if ok:
-            QMessageBox.information(
-                self, "MSY Rip",
-                "Güncelleme indirildi ve başlatıldı.\n"
-                "Kurulum bitince programı yeniden aç.")
-            self.close()
-        else:
-            QMessageBox.warning(self, "MSY Rip",
-                                "Güncelleme indirilemedi. Daha sonra tekrar deneyin.")
+        # 24/11 MSY: indirme ARKA PLANDA + ilerleme cubugu (pencere donmaz)
+        from PyQt6.QtWidgets import QProgressDialog
+        self._dl_pencere = QProgressDialog(
+            "Güncelleme indiriliyor…", "İptal", 0, 100, self)
+        self._dl_pencere.setWindowTitle("MSY Rip — Güncelleme")
+        self._dl_pencere.setWindowModality(Qt.WindowModality.WindowModal)
+        self._dl_pencere.setMinimumDuration(0)
+        self._dl_pencere.setValue(0)
+        self._dl_pencere.setAutoClose(False)
+        self._dl_pencere.setAutoReset(False)
+
+        self._dl_thread = IndirmeThread(bilgi.get('url', ''), self)
+
+        def _ilerleme(yuzde, inen, toplam):
+            self._dl_pencere.setValue(max(0, min(100, yuzde)))
+            if toplam > 0:
+                self._dl_pencere.setLabelText(
+                    f"İndiriliyor… %{yuzde}  ({inen:.1f} / {toplam:.1f} MB)")
+            else:
+                self._dl_pencere.setLabelText(f"İndiriliyor… {inen:.1f} MB")
+            self._durum(f"Güncelleme indiriliyor: %{yuzde}")
+
+        def _bitti(ok, hata):
+            try:
+                self._dl_pencere.setValue(100)
+                self._dl_pencere.close()
+            except Exception:
+                pass
+            if ok:
+                QMessageBox.information(
+                    self, "MSY Rip",
+                    "Güncelleme indirildi ve başlatıldı.\n"
+                    "Kurulum bitince programı yeniden aç.")
+                self.close()
+            elif hata:
+                QMessageBox.warning(self, "MSY Rip",
+                                    "Güncelleme hatası:\n" + hata)
+            else:
+                QMessageBox.warning(self, "MSY Rip",
+                                    "Güncelleme indirilemedi. "
+                                    "Daha sonra tekrar deneyin.")
+
+        self._dl_thread.ilerleme.connect(_ilerleme)
+        self._dl_thread.bitti.connect(_bitti)
+        self._dl_pencere.canceled.connect(self._dl_thread.iptal)
+        self._dl_thread.start()
 
     def _durum(self, metin):
         self.durum_lbl.setText(str(metin)[:90])
