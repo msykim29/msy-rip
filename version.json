@@ -1,5 +1,5 @@
 {
-  "version": "1.1.2",
+  "version": "1.1.3",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Fixed the permission error on rip and on profile selection: the profiles folder lives under Program Files, which is read-only, so the app now falls back to the writable user folder (%APPDATA%)."
+  "notes": "Screen angles corrected to the real PM22 values measured from ScreeningParams.xml (C=105, M=75, Y=90, K=45, 55 LPI diamond). The previous table used C=15/Y=0, which produced the wrong dot interference and made horizontal banding worse."
 }

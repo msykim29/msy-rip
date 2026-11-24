@@ -13,7 +13,15 @@ from __future__ import annotations
 import numpy as np
 
 # Klasik AM screen açıları (derece) — CMYK için
-ACILAR = {'C': 15.0, 'M': 75.0, 'Y': 0.0, 'K': 45.0}
+# 24/11 MSY — PM22 gercek degerleri (C:\...\AppData\Language\English\
+# OutputDrivers\ScreeningParams.xml):
+#   Cyan Angle=105 Magenta Angle=75 Yellow Angle=90 Black Angle=45
+#   Frequency=55 (LPI), ShapeName=Diamond
+# Onceki tablo C=15, Y=0 idi — PM22 ile uyusmuyordu (acilar yanlis).
+ACILAR = {'C': 105.0, 'M': 75.0, 'Y': 90.0, 'K': 45.0}
+# PM22 ekran frekansi (LPI) ve nokta sekli
+FREKANS_LPI = 55.0
+NOKTA_SEKLI = 'Diamond'
 
 # Seviye ağırlıkları — Ditherparams.xml'den
 SEVIYELER = (0.0, 0.28, 0.56, 1.00)
