@@ -69,11 +69,13 @@ class Ayarlar:
     murekkep_limiti: float = 1.0   # 0..1 — ton->nokta cevriminde tepe doygunluk
     # 24/11 MSY: toplam murekkep limiti (%) — DTF icin ~%250.
     # 4 kanal ust uste binince baski koyu/camur oluyordu; PM22 de limit uygular.
-    toplam_murekkep_limiti: float = 250.0
+    toplam_murekkep_limiti: float = 0.0   # 0 = kapali (dunku iyi cikti)
     # 24/11 MSY: UCR orani (0..1) — siyahi C/M/Y'den ne kadar cikaracagi
     ucr_orani: float = 0.6
+    # 24/11 MSY: ton carpani — v1.0.47'de olculen 0.81 (dunku iyi baskı)
+    ton_carpani: float = 0.81
     # 24/11 MSY: baski gammasi (>1 = daha acik baskı). PM22 muadili ton duzeltmesi.
-    baski_gamma: float = 1.35
+    baski_gamma: float = 1.0   # 1.0 = degisiklik yok (dunku iyi cikti)
 
     # 16/11/2026: makine profili
     makine: str = ''             # core/machines.py MAKINELER anahtarı

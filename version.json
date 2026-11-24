@@ -1,5 +1,5 @@
 {
-  "version": "1.1.5",
+  "version": "1.1.6",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Prints stayed too dark after the ink limit, so a print gamma (1.35) is now applied to the ink values - the same kind of tone correction the PM22 profile does. It is adjustable in Settings: 1.0 = unchanged, 1.5-1.8 = noticeably lighter."
+  "notes": "Reverted the tone handling to the version that was reported as good: measured tone factor 0.81 (the 1.0 introduced later made prints much darker) and the total ink limit / gamma are off by default again. All three remain adjustable in Settings, so the darkness can be tuned without another build."
 }

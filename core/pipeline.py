@@ -315,7 +315,14 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # camur gibi. PM22/PM19 kendi profilinde TIL uyguluyor; biz hic
     # uygulamiyorduk. Varsayilan %250 (DTF icin yaygin), kullanici
     # `toplam_murekkep_limiti` ile degistirebilir.
-    _til = float(getattr(ayar, 'toplam_murekkep_limiti', 250.0) or 250.0)
+    # 24/11: `or 250.0` yuzunden 0 (kapali) degeri 250'ye donuyordu.
+    # Artik 0 = KAPALI, gecersiz deger gelirse varsayilan 250.
+    try:
+        _til = float(getattr(ayar, 'toplam_murekkep_limiti', 250.0))
+    except (TypeError, ValueError):
+        _til = 250.0
+    if _til < 0:
+        _til = 250.0
     if _til > 0:
         _cm = cmyk.astype(np.float32)
         _top = _cm[:, :, :4].sum(axis=2)
@@ -332,7 +339,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     # BASKI GAMMASI: algilanan parlaklik = (murekkep)^(1/gamma). Ton degerini
     # dogrudan yukseltmek baskiyi acar. PM22 renk profili de boyle bir
     # duzeltme uygular. Varsayilan 1.35; kullanici ayarlardan degistirebilir.
-    _gam = float(getattr(ayar, 'baski_gamma', 1.35) or 1.0)
+    _gam = float(getattr(ayar, 'baski_gamma', 1.0) or 1.0)
     if abs(_gam - 1.0) > 0.01:
         _g = cmyk.astype(np.float32) / 255.0
         cmyk = np.clip(255.0 * np.power(_g, 1.0 / _gam), 0, 255).astype(np.uint8)
@@ -536,7 +543,12 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # Ölçüm: PM22 ton 0.67/0.75/0.75, biz 0.59/0.68/0.70
                     # -> kalan farkı kapatmak için 1.07 çarpanı (tepe 1.0)
                     # 23/11: desen/adres duzeldi -> ton tabani LINEER (1.07 kaldirildi)
-                    _g3 = np.clip(_g, 0.0, 1.0)
+                    # 24/11 (MSY: "dün yaptığımız çok iyiydi") — v1.0.47'deki
+                    # ÖLÇÜLMÜŞ ton çarpanı 0.81 geri getirildi. Sonraki
+                    # sürümlerde 1.0 yapılmıştı; bu baskıyı belirgin koyulaştırdı.
+                    # Ayarlanabilir: `ton_carpani` (varsayılan 0.81).
+                    _tc = float(getattr(ayar, 'ton_carpani', 0.81) or 0.81)
+                    _g3 = np.clip(np.clip(_g, 0.0, 1.0) * _tc, 0.0, 1.0)
                     _t = _g3 * 8.0
                     # 23/11: MUTLAK koordinatla maske (blok/goreli degil):
                     #   satir -> _r_mutlak % 256, sutun -> x % 256
