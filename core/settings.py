@@ -72,6 +72,8 @@ class Ayarlar:
     toplam_murekkep_limiti: float = 250.0
     # 24/11 MSY: UCR orani (0..1) — siyahi C/M/Y'den ne kadar cikaracagi
     ucr_orani: float = 0.6
+    # 24/11 MSY: baski gammasi (>1 = daha acik baskı). PM22 muadili ton duzeltmesi.
+    baski_gamma: float = 1.35
 
     # 16/11/2026: makine profili
     makine: str = ''             # core/machines.py MAKINELER anahtarı

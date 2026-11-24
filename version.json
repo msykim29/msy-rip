@@ -1,5 +1,5 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.5",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Prints were coming out much too dark: the pipeline never applied a Total Ink Limit, so C+M+Y+K could stack far past what the media can absorb. A TIL of 250%% is now applied by default, plus an adjustable UCR ratio (0.6). Both are exposed in Settings so the darkness can be tuned without a new build."
+  "notes": "Prints stayed too dark after the ink limit, so a print gamma (1.35) is now applied to the ink values - the same kind of tone correction the PM22 profile does. It is adjustable in Settings: 1.0 = unchanged, 1.5-1.8 = noticeably lighter."
 }

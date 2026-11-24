@@ -328,6 +328,15 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             cmyk = np.clip(_cm, 0, 255).astype(np.uint8)
             log(f"  toplam murekkep limiti: %{_til:.0f} uygulandi "
                 f"({int(_fazla.sum()):,} piksel kisildi)")
+    # 24/11 MSY (2. tur — "yine cok koyu"): TIL tek basina yetmedi.
+    # BASKI GAMMASI: algilanan parlaklik = (murekkep)^(1/gamma). Ton degerini
+    # dogrudan yukseltmek baskiyi acar. PM22 renk profili de boyle bir
+    # duzeltme uygular. Varsayilan 1.35; kullanici ayarlardan degistirebilir.
+    _gam = float(getattr(ayar, 'baski_gamma', 1.35) or 1.0)
+    if abs(_gam - 1.0) > 0.01:
+        _g = cmyk.astype(np.float32) / 255.0
+        cmyk = np.clip(255.0 * np.power(_g, 1.0 / _gam), 0, 255).astype(np.uint8)
+        log(f"  baski gammasi: {_gam:.2f} uygulandi (koyuluk acildi)")
     yzd = ayar.renk_yuzde
     for i, ad in enumerate(('C', 'M', 'Y', 'K')):
         p = float(yzd.get(ad, 100)) / 100.0

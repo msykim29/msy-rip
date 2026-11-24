@@ -150,6 +150,17 @@ class AyarlarPenceresi(QDialog):
             "Yuksek = daha temiz renk, daha az camur.")
         h2c.addWidget(QLabel("UCR oranı:"))
         h2c.addWidget(self.ucr_spin)
+        h2c.addSpacing(16)
+        self.gamma_spin = QDoubleSpinBox()
+        self.gamma_spin.setRange(0.7, 2.5)
+        self.gamma_spin.setSingleStep(0.05)
+        self.gamma_spin.setDecimals(2)
+        self.gamma_spin.setValue(float(getattr(self.ayar, 'baski_gamma', 1.35)))
+        self.gamma_spin.setToolTip(
+            "Baskı gamması: 1.0 = degisiklik yok, buyuk deger = DAHA ACIK baskı.\n"
+            "Koyu cikiyorsa 1.5-1.8 deneyin.")
+        h2c.addWidget(QLabel("Baskı gamması:"))
+        h2c.addWidget(self.gamma_spin)
         h2c.addStretch(1)
         v2b = QVBoxLayout(g2b)
         v2b.addLayout(h2b)
@@ -397,6 +408,7 @@ class AyarlarPenceresi(QDialog):
             self.ayar.icc_aktif = bool(self.icc_aktif.isChecked())
             self.ayar.toplam_murekkep_limiti = float(self.til_spin.value())
             self.ayar.ucr_orani = float(self.ucr_spin.value())
+            self.ayar.baski_gamma = float(self.gamma_spin.value())
             self.ayar.icc_bpc = bool(self.icc_bpc_chk.isChecked())
             self.ayar.icc_cmyk_donusum = bool(self.icc_cmyk_chk.isChecked())
         except Exception:
