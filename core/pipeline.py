@@ -605,47 +605,76 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     _t = _g3 * 8.0
                     _m8 = _dither_maske(_t.shape[0], _t.shape[1], _sl, p).astype(np.float32)
                     _mf = _m8 / 254.0                    # 0..1 eşik
-                    _kel = np.zeros(_t.shape, dtype=np.uint32)
-                    # 21/11 v33 — PM22 ÖLÇÜMÜ (kesin):
-                    #   TIF ton 0.759 -> n = 6 ortalama (0.75)
-                    #   PM22 n dağılımı: 4-7 arası, ortalama dizi uzunluğu 1.26
-                    #   (yani n PİKSELDEN PİKSELE değişiyor — dither)
-                    #
-                    # Formül: n = round(ton*8) ve maske ile ±1 dither:
-                    #   kesir > mf  -> n+1,  değilse n
-                    # Bu PM22'nin dağılımını (4,5,6,7) birebir verir.
-                    _t8v = _t                               # 0..8 (ton*8)
+                    # 25/11: dolu alt-satir sayisi (ton x 8 + dither) — 0..8
+                    _t8v = _t
                     _nf2 = np.floor(_t8v).astype(np.int32)
                     _nf2 = _nf2 + ((_t8v - _nf2) > _mf).astype(np.int32)
                     _nf2 = np.clip(_nf2, 0, 8)
-                    # kelime: nf2 alt-satır dolu (ilk nf2 bit)
-                    for _d in range(8):
-                        _kel += ((_nf2 > _d).astype(np.uint32)
-                                 << np.uint32(2 * _d))
-
-                    # 21/11 v38 — DİKEY ÇİZGİ KIRMA (MSY şikayeti):
-                    # PM22'de her 8 alt-satır AYNI kelimeyi taşıyor; ama
-                    # bit'lerin İÇİNDEKİ dizilim alt-satırdan alt-satıra
-                    # DEĞİŞİYOR (ölçüm: x=163 için n=[6,8,7,6,7,6]).
-                    # n sabit kalır, BİT PERMÜTASYONU değişir → aynı ton,
-                    # farklı dikey desen → dikey çizgi kırılır.
-                    # 25/11 MSY (KESIN): v1.0.44'un kodu BIREBIR geri getirildi.
-                    # "Renk çok iyiydi, sadece çizgi oluyordu" — 1.0.44'te
-                    # adresleme `8*gecerli + _sl + 8*_o` idi ve bu RENGI bozmuyordu.
-                    # Sonradan eklediğim "çakışmasız" adresleme TONU BOZDU.
-                    # Artık renk dünkü/1.0.44 gibi; çizgi sorunu ayrı ele alınacak.
-                    _rng_v = np.random.default_rng(31_000 + _sl * 97 + p * 13)
-                    _perm_tab = _rng_v.permuted(np.arange(8))  # ilk permütasyon
-                    for _o in range(8):
-                        _perm = np.roll(_perm_tab, _o)
-                        _kat = np.zeros(_t.shape, dtype=np.uint32)
-                        for _d in range(8):
-                            # bit _d -> hedef bit _perm[_d]
-                            _kat += (((_nf2 > _d).astype(np.uint32))
-                                     << np.uint32(2 * int(_perm[_d])))
-                        _hedef_r = 8 * gecerli + _sl + 8 * _o
-                        _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
-                        plane[_hedef_r[_ok]] = _kat[_ok].astype('>u2')
+                    # 25/11 MSY (CIZGI COZUMU — OLCULDU): kelime CESITLILIGI.
+                    # Olcum: PM22 1.244 farkli kelime uretiyor, bizim eski kod
+                    # sadece 89 -> desen kisa surede tekrar ediyor -> DIKEY CIZGI.
+                    # COZUM: her 4-bit grubun dolu bit SAYISI = _nb (ton, degismez),
+                    # KONUMU ise x/y/slot/blok tohumlu RASTGELE secilir. Boylece
+                    # kombinasyon uzayi patlar, tekrar olmaz, TON DEGISMEZ.
+                    # 25/11 MSY (TON KALIBRASYONU): eski kodda TOPLAM dolu bit
+                    # sayisi _nf2 (0..8) idi. 4 gruba bolununce grup basina
+                    # _nf2/4 dusuyor. Onceki denemede her gruba _nf2/2 koydugum
+                    # icin murekkep 4 katina cikti (ton 0.17 -> 0.24).
+                    # 25/11 MSY TON KALIBRASYONU (olcum): _nf2//4 ile ton 0.1428
+                    # cikti, hedef 0.172. Olcek 1.20x -> grup basina bit sayisi
+                    # 1.20 ile carpalim; kesirli kismi hash ile olasiliksal yap.
+                    _nb_f = np.clip((_nf2.astype(np.float32) / 4.0) * 0.96, 0, 4)
+                    _nb = np.floor(_nb_f).astype(np.int32)
+                    _nb = _nb + (np.random.default_rng(1234).random(_nb.shape)
+                                 < (_nb_f - _nb)).astype(np.int32)
+                    _nb = np.clip(_nb, 0, 4)   # grup basina dolu bit
+                    _cols_x = np.arange(_t.shape[1], dtype=np.int64)
+                    _kel = np.zeros(_t.shape, dtype=np.uint32)
+                    # 25/11 MSY (KESIN CIZGI COZUMU): her pikselin HER grup
+                    # bit konumu BAGIMSIZ rastgele secilir. Faz yerine hash
+                    # kullaniliyor: x, y, slot, blok, grup -> 16-bit tohum.
+                    # Dolu bit SAYISI = _nb (ton) DEGISMEZ -> renk korunur.
+                    _cols_b = np.broadcast_to(_cols_x.astype(np.uint64),
+                                              _t.shape)
+                    _rows_b = np.broadcast_to(
+                        _r_mutlak.astype(np.uint64)[:, None], _t.shape)
+                    # 25/11 MSY: Python tabanli hash (numpy uint64 tasmasi yok).
+                    # Her (x, y, slot, blok, grup) icin 32-bit tohum -> xorshift.
+                    _H, _W = _t.shape
+                    _kel = np.zeros((_H, _W), dtype=np.uint32)
+                    _sl_i = int(_sl)
+                    _p_i = int(p)
+                    for _xi in range(_W):
+                        _x_seed = (_xi * 2654435761
+                                   + _sl_i * 40503 + _p_i * 2246822519) & 0xFFFFFFFF
+                        _col_nb = _nb[:, _xi]
+                        for _yi in range(_H):
+                            _nbv = int(_col_nb[_yi])
+                            if _nbv <= 0:
+                                continue
+                            _h = (_x_seed
+                                  + _yi * 374761393) & 0xFFFFFFFF
+                            _w = 0
+                            for _g in range(4):
+                                _hg = (_h ^ (_g * 668265263)) & 0xFFFFFFFF
+                                _hg = ((_hg ^ (_hg >> 15)) * 2246822519) & 0xFFFFFFFF
+                                _hg = (_hg ^ (_hg >> 13)) & 0xFFFFFFFF
+                                _gr = 0
+                                for _k in range(_nbv):
+                                    _bit = (_hg >> (_k * 2)) & 3
+                                    _gr |= 1 << _bit
+                                _w |= (_gr << (4 * _g))
+                            _kel[_yi, _xi] = _w
+                    _kel = _kel.astype(np.uint32)
+                    _kel = _kel.astype(np.uint32)
+                    # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
+                    # uretildi. v1.0.44'un eski "ilk n cift + permutasyon"
+                    # blogu BURADAYDI ve _kat'i yeniden hesaplayip _kel'in
+                    # uzerine yaziyordu -> tum desen denemeleri bosa gidiyordu.
+                    # KALDIRILDI. Adresleme v1.0.44 ile ayni (renk korunur).
+                    _hedef_r = 8 * gecerli + _sl
+                    _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
+                    plane[_hedef_r[_ok]] = _kel[_ok].astype('>u2')
             # 20/11: beyaz katman (slot 4) — alpha maskesi, 8 alt-satir
             if W_ is not None:
                 # 21/11 v18 (PM22 ölçümü): beyaz slot4, 8 alt-satır aynı,

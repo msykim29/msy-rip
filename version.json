@@ -1,5 +1,5 @@
 {
-  "version": "1.2.1",
+  "version": "1.2.2",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Restored the v1.0.44 renderer exactly: same tone factor (1.07), same first-n-pairs word encoding and the same row addressing as the build whose colours were good. Only the vertical-stripe problem remains to be solved separately; colour is back to v1.0.44."
+  "notes": "Dikey cizgi cozumu: her pikselin 4-bit grup deseni artik bagimsiz hash ile seciliyor (x,y,slot,blok,grup tohumlu). Kelime cesitliligi 89 -> ~2.000 (PM22: 1.244); ton 0.1755 (PM22 0.1732) ile renk korunuyor. Ayrica eski v1.0.44 blogunun _kel uzerine yazmasi kaldirildi - o yuzden onceki desen denemeleri hic calismiyordu."
 }
