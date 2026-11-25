@@ -12,7 +12,16 @@ from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 block_cipher = None
 
-hiddenimports = collect_submodules('PIL') + collect_submodules('numpy') + collect_submodules('tifffile')
+hiddenimports = (collect_submodules('PIL') + collect_submodules('numpy')
+                  + collect_submodules('tifffile'))
+# 25/11 MSY: PDF girdi destegi icin PyMuPDF
+try:
+    hiddenimports += collect_submodules('pymupdf')
+except Exception:
+    try:
+        hiddenimports += collect_submodules('fitz')
+    except Exception:
+        pass
 
 # 15/11/2026: PyQt6 platform eklentileri (qwindows.dll) otomatik alinmiyordu
 # -> "DLL load failed while importing QtWidgets" hatasi. Elle ekle.

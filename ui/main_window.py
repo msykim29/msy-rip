@@ -101,13 +101,126 @@ class AnaEkran(QMainWindow):
         self.setAcceptDrops(True)
         self._satirlar = []   # [(dosya_yolu, TifBilgi|None)]
 
+        self._kur_menubar()
         self._kur_toolbar()
         self._kur_govde()
         self._durum(f"Ayarlar yüklendi — çıkış: {self.ayar.cikis_klasoru or '(seçilmedi)'}")
         # 15/11: açılışta GitHub güncelleme kontrolü (arka planda, arayüzü bekletmez)
-        QTimer.singleShot(1200, self._guncelleme_kontrol)
+        QTimer.singleShot(2500, self._guncelleme_kontrol)
 
     # ---------------- arayüz kurulumu ----------------
+    # ---------------- 25/11 MSY: ust menu (MenuBar) ----------------
+    def _kur_menubar(self):
+        """Ust menu: Dosya / Yardim / Hakkimda / Guncelleme."""
+        mb = self.menuBar()
+
+        m_dosya = mb.addMenu("&Dosya")
+        a_ekle = QAction("Dosya Ekle…", self)
+        a_ekle.setShortcut("Ctrl+O")
+        a_ekle.triggered.connect(self.dosya_sec)
+        m_dosya.addAction(a_ekle)
+        a_temizle = QAction("Listeyi Temizle", self)
+        a_temizle.triggered.connect(self.listeyi_temizle)
+        m_dosya.addAction(a_temizle)
+        m_dosya.addSeparator()
+        a_ayar = QAction("Ayarlar…", self)
+        a_ayar.setShortcut("Ctrl+,")
+        a_ayar.triggered.connect(self.ayarlari_ac)
+        m_dosya.addAction(a_ayar)
+        m_dosya.addSeparator()
+        a_cikis = QAction("Çıkış", self)
+        a_cikis.setShortcut("Ctrl+Q")
+        a_cikis.triggered.connect(self.close)
+        m_dosya.addAction(a_cikis)
+
+        m_rip = mb.addMenu("&Rip")
+        a_rip = QAction("Rip Başlat", self)
+        a_rip.setShortcut("F5")
+        a_rip.triggered.connect(self.rip_baslat)
+        m_rip.addAction(a_rip)
+
+        m_yardim = mb.addMenu("&Yardım")
+        a_gunc = QAction("Güncelleme Kontrol Et…", self)
+        a_gunc.triggered.connect(lambda: self._guncelleme_kontrol(manuel=True))
+        m_yardim.addAction(a_gunc)
+        a_kaynak = QAction("Klasörleri Aç (Çıkış)", self)
+        a_kaynak.triggered.connect(self._cikis_klasoru_ac)
+        m_yardim.addAction(a_kaynak)
+        m_yardim.addSeparator()
+        a_log = QAction("crash.log Dosyasını Aç", self)
+        a_log.triggered.connect(self._crash_log_ac)
+        m_yardim.addAction(a_log)
+        m_yardim.addSeparator()
+        a_hak = QAction("Hakkımda / Info…", self)
+        a_hak.triggered.connect(self._hakkimda)
+        m_yardim.addAction(a_hak)
+
+    def _hakkimda(self):
+        """Hakkımda penceresi — sürüm, yapı, platform, ayar/çıkış yolları."""
+        import json as _json
+        import platform as _plat
+        import sys as _sys
+        surum = "?"
+        try:
+            kok = _sys._MEIPASS if getattr(_sys, 'frozen', False) else \
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            with open(os.path.join(kok, 'version.json'), encoding='utf-8') as _f:
+                surum = _json.load(_f).get('version', '?')
+        except Exception:
+            try:
+                surum = updater.SURUM
+            except Exception:
+                pass
+        from core.settings import ayar_yolu, profil_klasoru
+        try:
+            _py = _plat.python_version()
+        except Exception:
+            _py = '?'
+        QMessageBox.information(
+            self, "MSY Rip — Hakkımda",
+            f"<b>MSY Rip</b> v{surum}<br><br>"
+            f"DTF baskı için PRT üretici.<br>"
+            f"Geliştirici: MSY — <a href='https://www.msy.kim'>www.msy.kim</a><br><br>"
+            f"<b>Sistem</b><br>"
+            f"Python {_py}<br>{_plat.platform()}<br><br>"
+            f"<b>Yollar</b><br>"
+            f"Ayarlar: {ayar_yolu()}<br>"
+            f"Profiller: {profil_klasoru()}<br>"
+            f"Çıkış: {self.ayar.cikis_klasoru or '(seçilmedi)'}<br><br>"
+            f"<b>Kısayollar</b><br>"
+            f"Ctrl+O dosya ekle · F5 rip · Ctrl+, ayarlar · Ctrl+Q çıkış")
+
+    def _cikis_klasoru_ac(self):
+        y = self.ayar.cikis_klasoru
+        if not y or not os.path.isdir(y):
+            QMessageBox.warning(self, "MSY Rip", "Çıkış klasörü seçili değil veya yok.")
+            return
+        try:
+            if sys.platform.startswith('win'):
+                os.startfile(y)   # noqa: S606
+            elif sys.platform == 'darwin':
+                import subprocess
+                subprocess.Popen(['open', y])
+            else:
+                import subprocess
+                subprocess.Popen(['xdg-open', y])
+        except Exception as e:
+            QMessageBox.warning(self, "MSY Rip", f"Açılamadı: {e}")
+
+    def _crash_log_ac(self):
+        import sys as _sys
+        kok = os.path.dirname(_sys.executable) if getattr(_sys, 'frozen', False) \
+            else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        yol = os.path.join(kok, 'crash.log')
+        if not os.path.exists(yol):
+            QMessageBox.information(self, "MSY Rip", "crash.log yok (hata kaydı yok).")
+            return
+        try:
+            os.startfile(yol) if sys.platform.startswith('win') else None
+        except Exception:
+            pass
+        QMessageBox.information(self, "MSY Rip", f"crash.log:\n{yol}")
+
     def _kur_toolbar(self):
         tb = QToolBar("Ana")
         tb.setMovable(False)
@@ -246,14 +359,17 @@ class AnaEkran(QMainWindow):
         yollar = []
         for url in e.mimeData().urls():
             p = url.toLocalFile()
-            if p and os.path.isfile(p) and p.lower().endswith(('.tif', '.tiff')):
+            if p and os.path.isfile(p) and p.lower().endswith(
+                    ('.tif', '.tiff', '.png', '.jpg', '.jpeg', '.bmp', '.webp', '.pdf')):
                 yollar.append(p)
         if yollar:
             self._dosya_ekle(yollar)
 
     def dosya_sec(self):
         yollar, _ = QFileDialog.getOpenFileNames(
-            self, "TIF dosyaları seç", "", "TIFF (*.tif *.tiff)")
+            self, "Baskı dosyaları seç", "",
+            "Desteklenen (*.tif *.tiff *.png *.jpg *.jpeg *.bmp *.webp *.pdf);;"
+            "TIFF (*.tif *.tiff);;Görsel (*.png *.jpg *.jpeg *.bmp *.webp);;PDF (*.pdf)")
         if yollar:
             self._dosya_ekle(yollar)
 
@@ -361,13 +477,33 @@ class AnaEkran(QMainWindow):
         self._durum("Tamamlandı")
 
     # ---------------- güncelleme ----------------
-    def _guncelleme_kontrol(self):
-        """Arka planda GitHub'dan sürüm kontrolü."""
+    def _guncelleme_kontrol(self, manuel: bool = False):
+        """GitHub'dan sürüm kontrolü.
+
+        25/11 MSY: açılışta bazen kontrol edilmiyordu. Sebepler:
+          • QTimer 1200 ms çok kısaydı (pencere henüz hazır değilken ağ hatası)
+          • timeout=3 sn çok düşüktü (yavaş DNS'te sessizce başarısız)
+          • hata olursa sessizce dönülüyordu (kullanıcı hiçbir şey görmüyordu)
+        Artık: 8 sn timeout, hata durumunda (manuel ise) bilgi verilir.
+        """
         try:
-            bilgi = updater.guncelleme_kontrol()
-        except Exception:
+            bilgi = updater.guncelleme_kontrol(timeout=8.0)
+        except Exception as e:
+            if manuel:
+                QMessageBox.warning(
+                    self, "MSY Rip — Güncelleme",
+                    f"Sunucuya ulaşılamadı:\n{e}\n\n"
+                    "İnternet bağlantını kontrol edip tekrar dene.")
             return
         if not bilgi:
+            if manuel:
+                try:
+                    surum = updater.SURUM
+                except Exception:
+                    surum = "?"
+                QMessageBox.information(
+                    self, "MSY Rip — Güncelleme",
+                    f"Program güncel.\nSürüm: v{surum}")
             return
         cevap = QMessageBox.question(
             self, "MSY Rip — Güncelleme",

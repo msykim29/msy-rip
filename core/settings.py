@@ -42,6 +42,10 @@ class Ayarlar:
 
     # 3) ICC profili — ilk kurulumda uygulamayla gelen varsayilan profil
     icc_yol: str = 'Renk Profili.icc'
+    # 25/11 MSY: ayar şeması sürümü. Yeni sürüm varsayılanları değiştirdiğinde
+    # bu sayı artar; yükleme sırasında eski ayar dosyasındaki ESKİYEN anahtarlar
+    # atlanır (kullanıcının kendi yaptığı kişisel ayarlar korunur).
+    ayar_surumu: int = 2
     icc_intent: str = 'Perceptual'
     icc_bpc: bool = True
     # 21/11 — MSY: "renkler soluk, ISO kumlaması var" şikayetinin kökü:
@@ -111,6 +115,20 @@ class Ayarlar:
             for k, v in d.items():
                 if hasattr(a, k):
                     setattr(a, k, v)
+            # 25/11 MSY: "güncelleme değiştirdiğim ayarları düzeltsin".
+            # ayar_surumu eskiyse, ton/koyuluk ayarlarını YENİ varsayılanlara
+            # çek (kullanıcı bunları kendi değiştirmiş olabilir ama yeni
+            # varsayılanlar ölçülmüş ve doğru). Diğer kişisel ayarlar korunur.
+            try:
+                _eski = int(d.get('ayar_surumu', 1) or 1)
+            except Exception:
+                _eski = 1
+            if _eski < cls().ayar_surumu:
+                _varsayilan = cls()
+                for _k in ('ton_carpani', 'baski_gamma', 'toplam_murekkep_limiti',
+                           'ucr_orani', 'murekkep_limiti'):
+                    setattr(a, _k, getattr(_varsayilan, _k))
+                a.ayar_surumu = _varsayilan.ayar_surumu
             return a
         except Exception:
             return cls()

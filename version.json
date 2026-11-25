@@ -1,5 +1,5 @@
 {
-  "version": "1.1.6",
+  "version": "1.1.7",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Reverted the tone handling to the version that was reported as good: measured tone factor 0.81 (the 1.0 introduced later made prints much darker) and the total ink limit / gamma are off by default again. All three remain adjustable in Settings, so the darkness can be tuned without another build."
+  "notes": "Menu bar with File / Rip / Help, a Help > About (Info) dialog and a manual update check. The startup update check now waits longer and reports timeouts. PDF and PNG/JPG/BMP/WEBP inputs are supported - the white spot layer is generated the same way as for TIFF. Settings carry a schema version so updates refresh the measured tone/darkness defaults while keeping your own paths and profiles."
 }

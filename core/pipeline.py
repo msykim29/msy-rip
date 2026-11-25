@@ -46,6 +46,57 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     if not os.path.exists(tif_yolu):
         raise RipHatasi(f"Dosya yok: {tif_yolu}")
 
+    # 25/11 MSY: PDF ve PNG (JPG/BMP/WEBP) girdi destegi.
+    # PDF: PyMuPDF (fitz) varsa ilk sayfa 300 dpi rasterize edilir.
+    # PNG/JPG: Pillow ile RGBA'ya cevrilir, gecici TIF olarak normal akisa girer.
+    # Her iki durumda da SPOT/beyaz katmani ayni sekilde uretilir (alpha kanali).
+    _uzanti = os.path.splitext(tif_yolu)[1].lower()
+    _gecici = None
+    if _uzanti in ('.png', '.jpg', '.jpeg', '.bmp', '.webp'):
+        try:
+            from PIL import Image as _PIL
+            import tempfile as _tmp
+            _im = _PIL.open(tif_yolu)
+            _im = _im.convert('RGBA')
+            _fd, _gecici = _tmp.mkstemp(suffix='.tif')
+            os.close(_fd)
+            # PNG/JPG -> TIFF (RGBA), dpi=300 varsayilan
+            _im.save(_gecici, format='TIFF', dpi=(300, 300))
+            log(f"  {_uzanti.upper()[1:]} -> TIF'e cevrildi (RGBA, 300 dpi)")
+            tif_yolu = _gecici
+        except Exception as _e:
+            raise RipHatasi(f"Gorsel acilamadi ({_uzanti}): {_e}")
+    elif _uzanti == '.pdf':
+        try:
+            try:
+                import pymupdf as fitz   # yeni API
+            except Exception:
+                import fitz              # eski API
+        except Exception:
+            raise RipHatasi(
+                "PDF icin PyMuPDF gerekli. Kurulum: pip install pymupdf")
+        try:
+            from PIL import Image as _PIL
+            import tempfile as _tmp
+            _doc = fitz.open(tif_yolu)
+            if _doc.page_count < 1:
+                raise RipHatasi("PDF bos")
+            _sayfa = _doc.load_page(0)
+            # 300 dpi render (~ 72 pt/inch -> zoom = 300/72)
+            _m = fitz.Matrix(300.0 / 72.0, 300.0 / 72.0)
+            _pix = _sayfa.get_pixmap(matrix=_m, alpha=True)
+            _fd, _gecici = _tmp.mkstemp(suffix='.tif')
+            os.close(_fd)
+            _img = _PIL.frombytes('RGBA', (_pix.width, _pix.height), _pix.samples)
+            _img.save(_gecici, format='TIFF', dpi=(300, 300))
+            log(f"  PDF sayfa 1/{_doc.page_count} -> TIF ({_pix.width}x{_pix.height}, 300 dpi)")
+            _doc.close()
+            tif_yolu = _gecici
+        except RipHatasi:
+            raise
+        except Exception as _e:
+            raise RipHatasi(f"PDF acilamadi: {_e}")
+
     log(f"okunuyor: {os.path.basename(tif_yolu)}")
 
     # 20/11 v7 (PM19 dogrulama): 5/6 kanalli CMYK TIF'lerde Pillow C,M,Y'yi
@@ -673,4 +724,10 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
             f"tepe {float(W_.max()):.2f}")
     log(f"  yazim: 8 duzlem x {BLK} dongu (akis bazli)")
     log(f"  yazildi: {hedef} ({os.path.getsize(hedef):,} bayt)")
+    # 25/11 MSY: PDF/PNG'den cevrilen gecici TIF'i sil (disk sismesin)
+    if _gecici and os.path.exists(_gecici):
+        try:
+            os.remove(_gecici)
+        except Exception:
+            pass
     return hedef
