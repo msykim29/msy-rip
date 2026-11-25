@@ -1,5 +1,5 @@
 {
-  "version": "1.1.8",
+  "version": "1.1.9",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Fixes the over-dark print: settings migration now resets dangerous values (gamma<0.8 -> 1.0, ink limit <180%% -> 250, ink ratio <0.9 -> 1.0, UCR=0 -> 0.6) while keeping your own paths and profiles. The gamma log line no longer claims it lightens the print when it actually darkens it, and the settings validator warns about the three darkness traps."
+  "notes": "The settings migration from 1.1.8 only changed values in memory, so the file kept the old dark values and they came back on the next launch. The migration is now written to disk at startup, so outdated tone/darkness values are corrected permanently."
 }

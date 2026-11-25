@@ -98,6 +98,7 @@ class AnaEkran(QMainWindow):
         self.setWindowTitle("MSY Rip")
         self.resize(980, 620)
         self.ayar = Ayarlar.yukle()
+        self._goc_ve_kaydet()
         self.setAcceptDrops(True)
         self._satirlar = []   # [(dosya_yolu, TifBilgi|None)]
 
@@ -424,6 +425,29 @@ class AnaEkran(QMainWindow):
             self.ayar = d.ayar
             yol = self.ayar.kaydet()
             self._durum(f"Ayarlar kaydedildi → {yol}")
+
+    def _goc_ve_kaydet(self):
+        """25/11 MSY (KRITIK): `yukle()` gocu yalnizca BELLEKTE yapiyordu;
+        disk yalnizca kullanici Ayarlar > Kaydet'e basinca guncelleniyordu.
+        Bu yuzden "guncelleme ayarlari duzeltsin" istegi calismiyordu:
+        dosyada hala eski/tehlikeli degerler duruyordu ve bir sonraki acilista
+        ayni degerler geri geliyordu. Acilista goc yapildiysa diske de yaz."""
+        try:
+            import json as _json
+            from core.settings import ayar_yolu as _ayar_yolu
+            _yol = _ayar_yolu()
+            if os.path.exists(_yol):
+                with open(_yol, encoding='utf-8') as _f:
+                    _disk = _json.load(_f)
+            else:
+                _disk = {}
+            _eski = int(_disk.get('ayar_surumu', 1) or 1)
+            _yeni = int(getattr(self.ayar, 'ayar_surumu', 1) or 1)
+            if _eski < _yeni:
+                self.ayar.kaydet(_yol)
+                self._durum(f"Ayarlar yeni surume tasindi (sema {_eski} → {_yeni})")
+        except Exception:
+            pass
 
     # ---------------- rip ----------------
     def _daraltma(self, satir) -> int:
