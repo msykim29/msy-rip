@@ -599,79 +599,13 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # 21/11 v36 — ICC kapalı + hafif doygunluk eşlemesi.
                     # Ölçüm: PM22 ton 0.67/0.75/0.75, biz 0.59/0.68/0.70
                     # -> kalan farkı kapatmak için 1.07 çarpanı (tepe 1.0)
-                    # 23/11: desen/adres duzeldi -> ton tabani LINEER (1.07 kaldirildi)
-                    # 24/11 (MSY: "dün yaptığımız çok iyiydi") — v1.0.47'deki
-                    # ÖLÇÜLMÜŞ ton çarpanı 0.81 geri getirildi. Sonraki
-                    # sürümlerde 1.0 yapılmıştı; bu baskıyı belirgin koyulaştırdı.
-                    # Ayarlanabilir: `ton_carpani` (varsayılan 0.81).
-                    _tc = float(getattr(ayar, 'ton_carpani', 0.81) or 0.81)
-                    _g3 = np.clip(np.clip(_g, 0.0, 1.0) * _tc, 0.0, 1.0)
+                    # 25/11: dunku 1.07 çarpanı (ayarlanabilir: ton_carpani)
+                    _tc46 = float(getattr(ayar, 'ton_carpani', 1.07) or 1.07)
+                    _g3 = np.clip(np.clip(_g, 0.0, 1.0) * _tc46, 0.0, 1.0)
                     _t = _g3 * 8.0
-                    # 23/11: MUTLAK koordinatla maske (blok/goreli degil):
-                    #   satir -> _r_mutlak % 256, sutun -> x % 256
-                    _maske_tam = _maske_cache(_sl)
-                    if _maske_tam is None:
-                        # maske yoksa SESSIZ lineer yedege DUSME (blue-noise yok)
-                        _m8 = _dither_maske(_t.shape[0], _t.shape[1], _sl, p).astype(np.float32)
-                        _mf = _m8 / 254.0
-                    else:
-                        # 23/11 v5: mutlak cikti satiri (v1.0.47 davranisi).
-                        _rows = np.mod(_r_mutlak, 256).astype(np.int64)
-                        _cols = np.arange(W_PRT, dtype=np.int64) % 256
-                        _mf = (_maske_tam[np.ix_(_rows, _cols)].astype(np.float32)
-                               / 254.0)                 # 0..1 eşik
-                    # === 23/11 v6 — PM22 BIT DESENI (olculdu) ===
-                    # PM22 PRT'sinde 16 bit = 4 grup x 4 bit. Grup degerleri:
-                    #   0x0 (bos), 0x5 (0101), 0x6 (0110), 0x9 (1001), 0xA (1010)
-                    #   + 0x1, 0x4 (tek bit) — ara deger YOK (0x2,0x3,0x7,0x8...)
-                    # Yani her grup 4 alt-satirdan 2'sini isaretleyen
-                    # DIKDORTGEN (0x5/0x9) veya CAPRAZ (0x6/0xA) desen.
-                    # Biz de ayni 5 deseni kullanacagiz; ton -> desen yogunlugu.
-                    #
-                    # Desen secimi: ton*16 (0..16) -> 0..16 arasi "kac bit dolu"
-                    #   n_dolu = round(ton*16)  (0..16 arasi; 16 = tam dolu)
-                    # 4 grubun her biri 2 bit tasiyabilir -> 8 bit/grup-grubu
-                    # Ama PM22'de her grup 2 bit tasiyor -> toplam 8 bit
-                    # n_dolu 8'e kadar -> grup basina round(n_dolu/4)... yerine
-                    # DOGRUDAN: n_dolu/16 oraninda grup sayisi secilir.
-                    _cols_x = np.arange(_t.shape[1], dtype=np.int64)
-                    _t16 = np.clip(_t * 8.0, 0.0, 8.0)
-                    _n = np.floor(_t16).astype(np.int32)
-                    _n = _n + ((_t16 - _n) > _mf).astype(np.int32)  # kesirli kisim
-                    _n = np.clip(_n, 0, 8)
-                    # Ayni x icin her 4 grupta farkli desen secilsin (dikey bant
-                    # olusmasin): x'e gore sabit donusum tablosu
-                    _DES = np.array([0x0, 0x5, 0x6, 0x9, 0xA], dtype=np.uint32)
+                    _m8 = _dither_maske(_t.shape[0], _t.shape[1], _sl, p).astype(np.float32)
+                    _mf = _m8 / 254.0                    # 0..1 eşik
                     _kel = np.zeros(_t.shape, dtype=np.uint32)
-                    # === 23/11 v7 — PM22 KESIN YAPI (olculdu) ===
-                    # Her 16-bit kelime = 4 grup x 4 bit. Her grup AYNI dolu
-                    # bit sayisini tasir (olcum: s0'da g0..g3 hepsi 0.031).
-                    # Ornek: 0x69A5 -> [5, A, 6, 9] (hepsi 2 bit dolu)
-                    # Desen tablolari (dolu sayisina gore):
-                    _D1 = np.array([0x1, 0x2, 0x4, 0x8], dtype=np.uint32)   # 1 bit
-                    _D2 = np.array([0x5, 0xA, 0x6, 0x9], dtype=np.uint32)   # 2 bit
-                    _D3 = np.array([0x7, 0xB, 0xD, 0xE], dtype=np.uint32)   # 3 bit
-                    # ton x 16 -> 0..4 dolu bit (16 seviye; PM22 s4'te 0.86
-                    # oldugu icin ust uca sikistirilmis esik kullanilir)
-                    _t4 = np.clip(_t * 4.0, 0.0, 4.0)
-                    _nb = np.floor(_t4).astype(np.int32)
-                    _nb = _nb + ((_t4 - _nb) > _mf).astype(np.int32)
-                    _nb = np.clip(_nb, 0, 4)
-                    _kel = np.zeros(_t.shape, dtype=np.uint32)
-                    for _g in range(4):
-                        _sec = (_cols_x * 4 + _g * 7 + _r_mutlak[:, None] * 3).astype(np.int64) % 4
-                        _g1 = _D1[_sec]
-                        _g2 = _D2[_sec]
-                        _g3 = _D3[_sec]
-                        _g4 = np.uint32(0xF)
-                        _grup = np.where(_nb >= 4, _g4,
-                                         np.where(_nb == 3, _g3,
-                                                  np.where(_nb == 2, _g2,
-                                                           np.where(_nb == 1, _g1,
-                                                                    np.uint32(0)))))
-                        _kel |= _grup.astype(np.uint32) << np.uint32(4 * _g)
-                    _kel = _kel.astype(np.uint32)
-
                     # 21/11 v33 — PM22 ÖLÇÜMÜ (kesin):
                     #   TIF ton 0.759 -> n = 6 ortalama (0.75)
                     #   PM22 n dağılımı: 4-7 arası, ortalama dizi uzunluğu 1.26
@@ -684,33 +618,34 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     _nf2 = np.floor(_t8v).astype(np.int32)
                     _nf2 = _nf2 + ((_t8v - _nf2) > _mf).astype(np.int32)
                     _nf2 = np.clip(_nf2, 0, 8)
+                    # kelime: nf2 alt-satır dolu (ilk nf2 bit)
+                    for _d in range(8):
+                        _kel += ((_nf2 > _d).astype(np.uint32)
+                                 << np.uint32(2 * _d))
 
-                    # 23/11 KRITIK FIX (Kimi denetimi, sayisal olarak DOGRULANDI):
-                    # Eski adresleme  _hedef_r = 8*gecerli + _sl + 8*_o  idi.
-                    # Bu  =  8*(gecerli + _o) + _sl  demek -> (gecerli=k,_o=0) ile
-                    # (gecerli=k-1,_o=1) AYNI satiri yaziyor (test: 10 satirin
-                    # 9'unda cakisma, %90). Ustune yazma -> 8 alt-satira dagilmasi
-                    # gereken desen tek satira sikisiyor -> DIKEY CIZGI + satir
-                    # ortalamasi salinimi (RENK DALGASI).
-                    # COZUM: her kaynak satir KENDI alt-satir bloguna TEK kez yazilir.
-                    # Bit permutasyonu (np.roll) kaldirildi: n dongu disinda
-                    # hesaplandigi icin faz uretmiyor, sadece bit yerini degistiriyordu.
-                    # 23/11 v3 (BASKI FOTOGRAFI KANITI): tek yazma, duzgun
-                    # adreslenir ama cakisma olmadan sadece BLK satiri doluyordu
-                    # -> alt-satirlarin 7/8'i BOS -> acik gri zemin + kalan bos
-                    # satirlarda BEYAZ slot (65535) -> DİKEY CIZGI seridi.
-                    # Cozum: her kaynak satir KENDI 8 alt-satirina yazilir
-                    # (wrap, cakisma YOK) ve kelime deseni alt-satira gore
-                    # tohumlanir -> dikey bant kirilir.
-                    # 23/11 v5 (MSY: "dikey cizgiler ve dalgalar ARTTI"):
-                    # bit-spread DENEMESI GERI ALINDI. Dolu bitleri alt-satirlara
-                    # dagitmak her x'te farkli desen uretiyordu ve PM22'nin
-                    # kodlamasindan uzaklasiyordu -> artefakt artti.
-                    # v1.0.47 davranisi: duz bit kodlama (ilk n cift dolu).
-                    # Tek yazim, cakisma yok: her kaynak satir kendi bloguna.
+                    # 21/11 v38 — DİKEY ÇİZGİ KIRMA (MSY şikayeti):
+                    # PM22'de her 8 alt-satır AYNI kelimeyi taşıyor; ama
+                    # bit'lerin İÇİNDEKİ dizilim alt-satırdan alt-satıra
+                    # DEĞİŞİYOR (ölçüm: x=163 için n=[6,8,7,6,7,6]).
+                    # n sabit kalır, BİT PERMÜTASYONU değişir → aynı ton,
+                    # farklı dikey desen → dikey çizgi kırılır.
+                    # 25/11 MSY (KESIN DONUS): dunku (v1.0.46) TON KODLAMASI aynen
+                    # geri getirildi — "ilk n cift dolu" + bit permutasyonu.
+                    # Bugunku 4-bit grup deneyi tonu bozuyordu.
+                    # Sadece ADRESLEME duzeltmesi korunuyor (Kimi: cakisma %90):
+                    #   eski: _hedef_r = 8*gecerli + _sl + 8*_o   (ustune yaziyordu)
+                    #   yeni: her kaynak satir kendi 8 alt-satirina TEK kez
+                    _rng_v = np.random.default_rng(31_000 + _sl * 97 + p * 13)
+                    _perm_tab = _rng_v.permuted(np.arange(8))
+                    for _o in range(8):
+                        _perm = np.roll(_perm_tab, _o)
+                        _kat = np.zeros(_t.shape, dtype=np.uint32)
+                        for _d in range(8):
+                            _kat += (((_nf2 > _d).astype(np.uint32))
+                                     << np.uint32(2 * int(_perm[_d])))
                     _hedef_r = 8 * gecerli + _sl
                     _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
-                    plane[_hedef_r[_ok]] = _kel[_ok].astype('>u2')
+                    plane[_hedef_r[_ok]] = _kat[_ok].astype('>u2')
             # 20/11: beyaz katman (slot 4) — alpha maskesi, 8 alt-satir
             if W_ is not None:
                 # 21/11 v18 (PM22 ölçümü): beyaz slot4, 8 alt-satır aynı,

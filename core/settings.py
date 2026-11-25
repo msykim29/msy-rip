@@ -45,7 +45,7 @@ class Ayarlar:
     # 25/11 MSY: ayar şeması sürümü. Yeni sürüm varsayılanları değiştirdiğinde
     # bu sayı artar; yükleme sırasında eski ayar dosyasındaki ESKİYEN anahtarlar
     # atlanır (kullanıcının kendi yaptığı kişisel ayarlar korunur).
-    ayar_surumu: int = 3
+    ayar_surumu: int = 4
     icc_intent: str = 'Perceptual'
     icc_bpc: bool = True
     # 21/11 — MSY: "renkler soluk, ISO kumlaması var" şikayetinin kökü:
@@ -77,7 +77,7 @@ class Ayarlar:
     # 24/11 MSY: UCR orani (0..1) — siyahi C/M/Y'den ne kadar cikaracagi
     ucr_orani: float = 0.6
     # 24/11 MSY: ton carpani — v1.0.47'de olculen 0.81 (dunku iyi baskı)
-    ton_carpani: float = 0.81
+    ton_carpani: float = 1.07   # v1.0.46 (dunku iyi) degeri
     # 24/11 MSY: baski gammasi (>1 = daha acik baskı). PM22 muadili ton duzeltmesi.
     baski_gamma: float = 1.0   # 1.0 = degisiklik yok (dunku iyi cikti)
 
@@ -125,7 +125,7 @@ class Ayarlar:
                 _eski = 1
             if _eski < cls().ayar_surumu:
                 _varsayilan = cls()
-                for _k in ('ton_carpani', 'baski_gamma', 'toplam_murekkep_limiti',
+                for _k in ('baski_gamma', 'toplam_murekkep_limiti',
                            'ucr_orani', 'murekkep_limiti'):
                     setattr(a, _k, getattr(_varsayilan, _k))
                 a.ayar_surumu = _varsayilan.ayar_surumu
