@@ -45,7 +45,7 @@ class Ayarlar:
     # 25/11 MSY: ayar şeması sürümü. Yeni sürüm varsayılanları değiştirdiğinde
     # bu sayı artar; yükleme sırasında eski ayar dosyasındaki ESKİYEN anahtarlar
     # atlanır (kullanıcının kendi yaptığı kişisel ayarlar korunur).
-    ayar_surumu: int = 2
+    ayar_surumu: int = 3
     icc_intent: str = 'Perceptual'
     icc_bpc: bool = True
     # 21/11 — MSY: "renkler soluk, ISO kumlaması var" şikayetinin kökü:
@@ -148,6 +148,29 @@ class Ayarlar:
             hatalar.append(f'ICC profili bulunamadı: {icc_yol}')
         if not self.spot_adi:
             hatalar.append('Spot adı boş')
+        # 25/11 MSY: koyuluk tuzaklari — kullanici yanlislikla ters deger girebiliyor
+        try:
+            if float(getattr(self, 'baski_gamma', 1.0)) < 0.95:
+                hatalar.append(
+                    'Baskı gamması < 1.0 → baskıyı KOYULAŞTIRIR '
+                    '(açmak için 1.2–1.6 kullanın)')
+        except Exception:
+            pass
+        try:
+            _til = float(getattr(self, 'toplam_murekkep_limiti', 0) or 0)
+            if 0 < _til < 180:
+                hatalar.append(
+                    f'Toplam mürekkep limiti %{_til:.0f} çok düşük '
+                    '(DTF için %200–300; 0 = kapalı)')
+        except Exception:
+            pass
+        try:
+            if float(getattr(self, 'murekkep_limiti', 1.0)) < 0.9:
+                hatalar.append(
+                    'Renk doygunluğu < 0.9 → tüm tonlar kısılır '
+                    '(normalde 1.00)')
+        except Exception:
+            pass
         return hatalar
 
 

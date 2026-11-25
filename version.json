@@ -1,5 +1,5 @@
 {
-  "version": "1.1.7",
+  "version": "1.1.8",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Menu bar with File / Rip / Help, a Help > About (Info) dialog and a manual update check. The startup update check now waits longer and reports timeouts. PDF and PNG/JPG/BMP/WEBP inputs are supported - the white spot layer is generated the same way as for TIFF. Settings carry a schema version so updates refresh the measured tone/darkness defaults while keeping your own paths and profiles."
+  "notes": "Fixes the over-dark print: settings migration now resets dangerous values (gamma<0.8 -> 1.0, ink limit <180%% -> 250, ink ratio <0.9 -> 1.0, UCR=0 -> 0.6) while keeping your own paths and profiles. The gamma log line no longer claims it lightens the print when it actually darkens it, and the settings validator warns about the three darkness traps."
 }

@@ -394,7 +394,13 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
     if abs(_gam - 1.0) > 0.01:
         _g = cmyk.astype(np.float32) / 255.0
         cmyk = np.clip(255.0 * np.power(_g, 1.0 / _gam), 0, 255).astype(np.uint8)
-        log(f"  baski gammasi: {_gam:.2f} uygulandi (koyuluk acildi)")
+        # 25/11 MSY: log YANILTICIYDI — gamma<1 KOYULASTIRIR, >1 acar.
+        if _gam > 1.0:
+            log(f"  baski gammasi: {_gam:.2f} uygulandi (koyuluk ACILDI)")
+        elif _gam < 1.0:
+            log(f"  baski gammasi: {_gam:.2f} uygulandi (DIKKAT: koyulastirir)")
+        else:
+            log(f"  baski gammasi: {_gam:.2f} uygulandi")
     yzd = ayar.renk_yuzde
     for i, ad in enumerate(('C', 'M', 'Y', 'K')):
         p = float(yzd.get(ad, 100)) / 100.0
