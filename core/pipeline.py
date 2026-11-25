@@ -629,23 +629,23 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # DEĞİŞİYOR (ölçüm: x=163 için n=[6,8,7,6,7,6]).
                     # n sabit kalır, BİT PERMÜTASYONU değişir → aynı ton,
                     # farklı dikey desen → dikey çizgi kırılır.
-                    # 25/11 MSY (KESIN DONUS): dunku (v1.0.46) TON KODLAMASI aynen
-                    # geri getirildi — "ilk n cift dolu" + bit permutasyonu.
-                    # Bugunku 4-bit grup deneyi tonu bozuyordu.
-                    # Sadece ADRESLEME duzeltmesi korunuyor (Kimi: cakisma %90):
-                    #   eski: _hedef_r = 8*gecerli + _sl + 8*_o   (ustune yaziyordu)
-                    #   yeni: her kaynak satir kendi 8 alt-satirina TEK kez
+                    # 25/11 MSY (KESIN): v1.0.44'un kodu BIREBIR geri getirildi.
+                    # "Renk çok iyiydi, sadece çizgi oluyordu" — 1.0.44'te
+                    # adresleme `8*gecerli + _sl + 8*_o` idi ve bu RENGI bozmuyordu.
+                    # Sonradan eklediğim "çakışmasız" adresleme TONU BOZDU.
+                    # Artık renk dünkü/1.0.44 gibi; çizgi sorunu ayrı ele alınacak.
                     _rng_v = np.random.default_rng(31_000 + _sl * 97 + p * 13)
-                    _perm_tab = _rng_v.permuted(np.arange(8))
+                    _perm_tab = _rng_v.permuted(np.arange(8))  # ilk permütasyon
                     for _o in range(8):
                         _perm = np.roll(_perm_tab, _o)
                         _kat = np.zeros(_t.shape, dtype=np.uint32)
                         for _d in range(8):
+                            # bit _d -> hedef bit _perm[_d]
                             _kat += (((_nf2 > _d).astype(np.uint32))
                                      << np.uint32(2 * int(_perm[_d])))
-                    _hedef_r = 8 * gecerli + _sl
-                    _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
-                    plane[_hedef_r[_ok]] = _kat[_ok].astype('>u2')
+                        _hedef_r = 8 * gecerli + _sl + 8 * _o
+                        _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
+                        plane[_hedef_r[_ok]] = _kat[_ok].astype('>u2')
             # 20/11: beyaz katman (slot 4) — alpha maskesi, 8 alt-satir
             if W_ is not None:
                 # 21/11 v18 (PM22 ölçümü): beyaz slot4, 8 alt-satır aynı,

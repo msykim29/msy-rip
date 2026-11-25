@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Restored the tone pipeline from the build that printed well (v1.0.46): the measured 1.07 tone factor and the original first-n-pairs word encoding are back. The 4-bit group experiment that changed the tone is removed; only the row-addressing collision fix is kept. Menu bar, About, PDF/PNG input and the adjustable darkness controls remain, all defaulting to the good values."
+  "notes": "Restored the v1.0.44 renderer exactly: same tone factor (1.07), same first-n-pairs word encoding and the same row addressing as the build whose colours were good. Only the vertical-stripe problem remains to be solved separately; colour is back to v1.0.44."
 }
