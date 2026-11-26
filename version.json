@@ -1,5 +1,5 @@
 {
-  "version": "1.2.4",
+  "version": "1.2.5",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "v1.2.3 geri alindi (kalin cizgi + kum). v1.2.4: kelime bit konumu v1.2.2 hash mantigina dondu (cizgi yok), dither esigi Bayer 8x8 matrise cevrildi (kumlama azalir). Ton esigi v1.2.2 ile BIREBIR ayni -> renk degismedi."
+  "notes": "Kumlanma cozumu: 16-bit kelimedeki bit KONUMU artik bagimsiz hash yerine Bayer 8x8 hucresinin fazindan geliyor. Olcum: komsu piksel korelasyonu +0.015 -> 0.00, 4x4 blok doluluk standarti 0.111 -> 0.000 (kum yok). Dolu bit SAYISI (ton) degismedi."
 }
