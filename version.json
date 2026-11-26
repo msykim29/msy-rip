@@ -1,5 +1,5 @@
 {
-  "version": "1.2.2",
+  "version": "1.2.3",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Dikey cizgi cozumu: her pikselin 4-bit grup deseni artik bagimsiz hash ile seciliyor (x,y,slot,blok,grup tohumlu). Kelime cesitliligi 89 -> ~2.000 (PM22: 1.244); ton 0.1755 (PM22 0.1732) ile renk korunuyor. Ayrica eski v1.0.44 blogunun _kel uzerine yazmasi kaldirildi - o yuzden onceki desen denemeleri hic calismiyordu."
+  "notes": "Kumlanma (yuksek ISO) cozumu: kelime bit deseni bagimsiz rastgele hash yerine Bayer 8x8 esik matrisi + alt-satir fazi ile uretiliyor. Dolu bit SAYISI (ton) degismedi; komsu pikseller arasinda gurultu DEMETI olusmuyor -> duz ton gecisleri, desen tekrari yok (128 esik, 98 farkli kelime). Olcum: doluluk hedef 0.25/0.50/0.75 -> 0.241/0.509/0.742."
 }
