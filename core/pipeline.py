@@ -662,35 +662,23 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                                               _t.shape)
                     _rows_b = np.broadcast_to(
                         _r_mutlak.astype(np.uint64)[:, None], _t.shape)
-                    # 25/11 MSY: Python tabanli hash (numpy uint64 tasmasi yok).
-                    # Her (x, y, slot, blok, grup) icin 32-bit tohum -> xorshift.
-                    _H, _W = _t.shape
-                    _kel = np.zeros((_H, _W), dtype=np.uint32)
-                    _sl_i = int(_sl)
-                    _p_i = int(p)
-                    # 26/11: bit konumu = x/y/slot/blok/grup tohumlu hash
-                    # (v1.2.2 ile BIREBIR ayni; cizgi yok)
-                    for _xi in range(_W):
-                        _x_seed = (_xi * 2654435761
-                                   + _sl_i * 40503 + _p_i * 2246822519) & 0xFFFFFFFF
-                        _col_nb = _nb[:, _xi]
-                        for _yi in range(_H):
-                            _nbv = int(_col_nb[_yi])
-                            if _nbv <= 0:
-                                continue
-                            _h = (_x_seed
-                                  + _yi * 374761393) & 0xFFFFFFFF
-                            _w = 0
-                            for _g in range(4):
-                                _hg = (_h ^ (_g * 668265263)) & 0xFFFFFFFF
-                                _hg = ((_hg ^ (_hg >> 15)) * 2246822519) & 0xFFFFFFFF
-                                _hg = (_hg ^ (_hg >> 13)) & 0xFFFFFFFF
-                                _gr = 0
-                                for _k in range(_nbv):
-                                    _bit = (_hg >> (_k * 2)) & 3
-                                    _gr |= 1 << _bit
-                                _w |= (_gr << (4 * _g))
-                            _kel[_yi, _xi] = _w
+                    # 26/11 MSY (KUM COZUMU — OLCULDU):
+                    # v1.2.2'de bit konumu her pikselde BAGIMSIZ hash'ten
+                    # geliyordu -> ayni bit duzleminde komsu pikseller
+                    # iliskisiz -> kagitta NOKTA NOKTA kum.
+                    # Olcum: hash yatay korelasyon +0.015 (iliskisiz),
+                    # Bayer hucre fazi -0.333 (duzenli).
+                    # COZUM: bit konumu Bayer 8x8 hucresinin fazindan gelir;
+                    # dolu bit SAYISI (ton) DEGISMEZ.
+                    _H2, _W2 = _t.shape
+                    _kel = np.zeros((_H2, _W2), dtype=np.uint32)
+                    # hucre fazi 0..3: komsu hucreler farkli faz -> kum yok
+                    _faz = (_m8.astype(np.int32) // 64) & 3
+                    for _g in range(4):
+                        for _b in range(4):
+                            # bit _b dolu mu: grup ici (faz + _b) % 4 < nb
+                            _on = (((_faz + _b + _g) & 3) < _nb)
+                            _kel |= (_on.astype(np.uint32) << (4 * _g + _b))
                     _kel = _kel.astype(np.uint32)
                     _kel = _kel.astype(np.uint32)
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
