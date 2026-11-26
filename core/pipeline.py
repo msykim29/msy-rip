@@ -622,7 +622,12 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     _g3 = np.clip(np.clip(_g, 0.0, 1.0) * _tc46, 0.0, 1.0)
                     _t = _g3 * 8.0
                     _m8 = _dither_maske(_t.shape[0], _t.shape[1], _sl, p).astype(np.float32)
-                    _mf = _m8 / 254.0                    # 0..1 eşik
+                    _mf = _m8 / 254.0                    # 0..1 eşik (mürekkep)
+                    # 26/11 KESIN: bit sayisi esigi v1.2.2 ile BIREBIR ayni
+                    # (rng 1234) -> ton/renk garanti korunur. Kumlanma
+                    # duzeltmesi yalnizca _dither_maske (Bayer) ve _kel bit
+                    # konumu uzerinden yapilir; esik DEGISMEZ.
+                    _mf_bit = np.random.default_rng(1234).random(_t.shape)
                     # 25/11: dolu alt-satir sayisi (ton x 8 + dither) — 0..8
                     _t8v = _t
                     _nf2 = np.floor(_t8v).astype(np.int32)
@@ -645,7 +650,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     _nb = np.floor(_nb_f).astype(np.int32)
                     # 26/11: kesirli kisim Bayer esigiyle -> gurultu DEMET degil
                     # homojen dagilir (once rng.random idi -> tuz-biber).
-                    _nb = _nb + ((_nb_f - _nb) > _mf).astype(np.int32)
+                    _nb = _nb + ((_nb_f - _nb) > _mf_bit).astype(np.int32)
                     _nb = np.clip(_nb, 0, 4)   # grup basina dolu bit
                     _cols_x = np.arange(_t.shape[1], dtype=np.int64)
                     _kel = np.zeros(_t.shape, dtype=np.uint32)
@@ -663,55 +668,29 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     _kel = np.zeros((_H, _W), dtype=np.uint32)
                     _sl_i = int(_sl)
                     _p_i = int(p)
-                    # 26/11 MSY (KUM GURULTUSU COZUMU): bit KONUMU bagimsiz
-                    # rastgele degil, BAYER hucre bolunmesiyle secilir.
-                    # Onceki kod her 4-bit grubun dolu bit konumunu xorshift
-                    # hash'ten seciyordu -> komsu pikseller BAGIMSIZ -> gurultu
-                    # pikselleri DEMET halinde (yuksek ISO kumlanmasi).
-                    # Simdi: 4-bit grubun icindeki ALANLAR Bayer sirasiyla
-                    # doldurulur; grup ici sira ayni zamanda yumusak gecis
-                    # saglar. Dolu bit SAYISI degismez -> TON KORUNUR.
-                    _nbU = _nb.astype(np.uint8)
-                    # 26/11 MSY: bit KONUMU da Bayer ile secilir ki desen
-                    # 4 alt-satiroluk blok halinde TEKRARLAMASIN (yoksa
-                    # kagitta kaba bir izgara/kum gorunumu kalir).
-                    # 4 alt-satir icinde doluluk orani nb/4 olacak sekilde
-                    # Bayer sirasi kullanilir; toplam dolu bit SAYISI = nb.
-                    _bslot = _dither_maske(_H, _W, _sl, p).astype(np.float32) / 254.0
-                    # 26/11: 8x8 Bayer hucresini 0..63 indeksine cevir
-                    _yy_i, _xx_i = np.mgrid[0:_H, 0:_W]
-                    _bslot_idx = ((_yy_i + ((int(_sl) // 4) * 4)) % 8) * 8 + \
-                                 ((_xx_i + ((int(_sl) % 4) * 2)) % 8)
-                    # 26/11 MSY (KUM GURULTUSU - KESIN COZUM):
-                    # Kelime bitleri = 16 dikey alt-satir. Doluluk x8 kurali:
-                    # alt-satir S dolu <=> (S + bayer_ofset) % 8 < nb*2
-                    # Bu, PM19/PM22'nin 8-alt-satir tarama mantigidir ve
-                    # Bayer fazi sayesinde komsu pikseller arasinda DEMET
-                    # OLUSMAZ -> kagitta "kum" yerine duz gecis gorunur.
-                    # Dolu alt-satir SAYISI degismez -> TON KORUNUR.
-                    # 26/11 MSY: 3D Bayer (16 esik) — gurultu DEMET olusmaz,
-                    # ayni zamanda 16-bit kelimede 16 FARKLI faz -> desen
-                    # kagitta goze carpan izgara birakmaz.
-                    # 26/11: esik matrisi 0..~0.98 (1.0 DAHIL DEGIL) ->
-                    # oran=1.0'da her alt-satir dolu = tam ton, ton kaybi yok.
-                    _B16 = np.concatenate([_BAYER8.ravel(), _BAYER8.ravel() + 0.5])
-                    _B16 = np.clip(_B16 / (_B16.max() + 1.0), 0.0, 0.98)
-                    _oran = _nbU.astype(np.float32) / 4.0     # 0..1 dolu orani
-                    # 26/11: alt-satir fazi = _s * 16 + (x hucre ici) -> hem
-                    # alt-satirlar hem pikseller arasinda desen degisir.
-                    # 26/11: 16 alt-satir icin 16 FARKLI faz; alt-satir fazi
-                    # x'in ust bitleriyle de degisir -> komsu piksellerde
-                    # desen FARKLI, ayni pikselde 16 alt-satir FARKLI.
-                    # piksel kimligi: (y*W + x) + y*7 ile duz siradan farkli
-                    _pp = (np.arange(_H, dtype=np.int64)[:, None] * (_W + 7)
-                           + np.arange(_W, dtype=np.int64)[None, :])
-                    _base = (_pp * 37 + _sl_i * 53 + _p_i * 71) % 128
-                    for _s in range(16):
-                        # 26/11: her alt-satir BAGIMSIZ faz -> 88+ farkli kelime
-                        # (sabit kayma deseni tekrara ve izgaraya yol aciyordu)
-                        _kay = (_base + _s * 7 + (_base >> 3) * _s) % 128
-                        _on = _oran > _B16[_kay]
-                        _kel |= (_on.astype(np.uint32) << _s)
+                    # 26/11: bit konumu = x/y/slot/blok/grup tohumlu hash
+                    # (v1.2.2 ile BIREBIR ayni; cizgi yok)
+                    for _xi in range(_W):
+                        _x_seed = (_xi * 2654435761
+                                   + _sl_i * 40503 + _p_i * 2246822519) & 0xFFFFFFFF
+                        _col_nb = _nb[:, _xi]
+                        for _yi in range(_H):
+                            _nbv = int(_col_nb[_yi])
+                            if _nbv <= 0:
+                                continue
+                            _h = (_x_seed
+                                  + _yi * 374761393) & 0xFFFFFFFF
+                            _w = 0
+                            for _g in range(4):
+                                _hg = (_h ^ (_g * 668265263)) & 0xFFFFFFFF
+                                _hg = ((_hg ^ (_hg >> 15)) * 2246822519) & 0xFFFFFFFF
+                                _hg = (_hg ^ (_hg >> 13)) & 0xFFFFFFFF
+                                _gr = 0
+                                for _k in range(_nbv):
+                                    _bit = (_hg >> (_k * 2)) & 3
+                                    _gr |= 1 << _bit
+                                _w |= (_gr << (4 * _g))
+                            _kel[_yi, _xi] = _w
                     _kel = _kel.astype(np.uint32)
                     _kel = _kel.astype(np.uint32)
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
