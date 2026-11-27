@@ -670,7 +670,10 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # periyoduyla tekrar edip CIZGI birakiyor.
                     # YENI: faz = Bayer 8x8 (0..15.75) + her alt-satir kendi
                     # kaydirmasi -> kelime cesitliligi artar, ton korunur.
-                    _n16 = np.clip(_nbU.astype(np.float32) * 4.0, 0.0, 16.0)
+                    # 27/11 FIX: _nbU tanimi temizlik sirasinda silinmisti ->
+                    # "'_nbU' is not defined" hatasi rip'i tamamen durduruyordu.
+                    _nbU = _nb.astype(np.float32)
+                    _n16 = np.clip(_nbU * 4.0, 0.0, 16.0)
                     _yy16, _xx16 = np.mgrid[0:_H, 0:_W]
                     _ph = (_BAYER8[(_yy16 + (_sl_i * 3)) & 7,
                                   (_xx16 + (_p_i * 5)) & 7] / np.float32(4.0))
