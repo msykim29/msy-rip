@@ -1,5 +1,5 @@
 {
-  "version": "1.2.5",
+  "version": "1.2.6",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "Kumlanma cozumu: 16-bit kelimedeki bit KONUMU artik bagimsiz hash yerine Bayer 8x8 hucresinin fazindan geliyor. Olcum: komsu piksel korelasyonu +0.015 -> 0.00, 4x4 blok doluluk standarti 0.111 -> 0.000 (kum yok). Dolu bit SAYISI (ton) degismedi."
+  "notes": "PM22 referans PRT'si piksel piksel olculdu ve desen algoritmasi degistirildi: 16 alt-satirin her biri icin AYRI dither karari (Bayer 8x8 fazi + alt-satir kaydirmasi). Kelime cesitliligi 10 -> 31-32, ton/doluluk korundu (0.25/0.50/0.75 tam). Amac: 8 satir periyodundan kaynaklanan yatay cizgileri ve kumlanmayi gidermek."
 }

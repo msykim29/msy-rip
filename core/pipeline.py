@@ -654,32 +654,32 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     _nb = np.clip(_nb, 0, 4)   # grup basina dolu bit
                     _cols_x = np.arange(_t.shape[1], dtype=np.int64)
                     _kel = np.zeros(_t.shape, dtype=np.uint32)
-                    # 25/11 MSY (KESIN CIZGI COZUMU): her pikselin HER grup
-                    # bit konumu BAGIMSIZ rastgele secilir. Faz yerine hash
-                    # kullaniliyor: x, y, slot, blok, grup -> 16-bit tohum.
-                    # Dolu bit SAYISI = _nb (ton) DEGISMEZ -> renk korunur.
-                    _cols_b = np.broadcast_to(_cols_x.astype(np.uint64),
-                                              _t.shape)
-                    _rows_b = np.broadcast_to(
-                        _r_mutlak.astype(np.uint64)[:, None], _t.shape)
-                    # 26/11 MSY (KUM COZUMU — OLCULDU):
-                    # v1.2.2'de bit konumu her pikselde BAGIMSIZ hash'ten
-                    # geliyordu -> ayni bit duzleminde komsu pikseller
-                    # iliskisiz -> kagitta NOKTA NOKTA kum.
-                    # Olcum: hash yatay korelasyon +0.015 (iliskisiz),
-                    # Bayer hucre fazi -0.333 (duzenli).
-                    # COZUM: bit konumu Bayer 8x8 hucresinin fazindan gelir;
-                    # dolu bit SAYISI (ton) DEGISMEZ.
-                    _H2, _W2 = _t.shape
-                    _kel = np.zeros((_H2, _W2), dtype=np.uint32)
-                    # hucre fazi 0..3: komsu hucreler farkli faz -> kum yok
-                    _faz = (_m8.astype(np.int32) // 64) & 3
-                    for _g in range(4):
-                        for _b in range(4):
-                            # bit _b dolu mu: grup ici (faz + _b) % 4 < nb
-                            _on = (((_faz + _b + _g) & 3) < _nb)
-                            _kel |= (_on.astype(np.uint32) << (4 * _g + _b))
-                    _kel = _kel.astype(np.uint32)
+                    # 27/11 MSY (PM22 REFERANS — KESIN COZUM):
+                    # PM22 PRT'si piksel piksel olculdu:
+                    #   - 16 alt-satirin her biri BAGIMSIZ dither karari
+                    #   - 4.798 farkli kelime (bizde 10 idi)
+                    #   - bit duzlemi doluluklari 0.1035 / 0.1326 donusumlu
+                    # Bizim eski kod: bit konumu Bayer hucresinin 4 fazindan
+                    # geliyordu -> sadece 10 kelime -> 8 satir periyodu -> CIZGI.
+                    # YENI: her alt-satir icin AYRI esik (16 katmanli Bayer).
+                    # Dolu bit SAYISI tonla belirlenir -> doluluk korunur.
+                    # 27/11 MSY v1.2.6 (PM22 REFERANS):
+                    # PM22'de 16 alt-satirin her biri icin AYRI dither karari
+                    # var -> 4.798 farkli kelime. Bizde bit konumu 4 fazdan
+                    # geldigi icin sadece 10 kelime olusuyor ve desen 8 satir
+                    # periyoduyla tekrar edip CIZGI birakiyor.
+                    # YENI: faz = Bayer 8x8 (0..15.75) + her alt-satir kendi
+                    # kaydirmasi -> kelime cesitliligi artar, ton korunur.
+                    _n16 = np.clip(_nbU.astype(np.float32) * 4.0, 0.0, 16.0)
+                    _yy16, _xx16 = np.mgrid[0:_H, 0:_W]
+                    _ph = (_BAYER8[(_yy16 + (_sl_i * 3)) & 7,
+                                  (_xx16 + (_p_i * 5)) & 7] / np.float32(4.0))
+                    _kel = np.zeros((_H, _W), dtype=np.uint32)
+                    for _s in range(16):
+                        _faz = (_ph + np.float32(_s) * np.float32(0.9375))
+                        _faz = _faz - np.float32(16.0) * np.floor(_faz / np.float32(16.0))
+                        _on = (_faz < _n16)
+                        _kel |= (_on.astype(np.uint32) << _s)
                     _kel = _kel.astype(np.uint32)
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
                     # uretildi. v1.0.44'un eski "ilk n cift + permutasyon"
