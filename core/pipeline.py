@@ -690,39 +690,58 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     #   y%8=4 -> 0.595/0.464 (en dolu)
                     #   y%8=5,6,7 -> BOS
                     # Ortalama bit doluluklari: cift bitler 0.1034, tek bitler 0.1326
+                    # 27/11 v1.3.1 — PM22 BLUE-NOISE MASKE (GERCEK COZUM):
+                    # PM22'nin dither.dll'i 256x256 BLUE-NOISE maske kullaniyor
+                    # (DitherConfig.ini: UseNewMasks=1, SOFMMaxDot=0.6).
+                    # Olculen maske: komsu korelasyon -0.349 (blue noise imzasi),
+                    # 4x4 blok std 5.5, dusuk/yuksek frekans orani 0.001
+                    # (mukemmel yuksek frekansli = kum/izgara YOK).
+                    # Bizim Bayer matrisi bunu saglamiyordu -> CIZGI.
+                    # 27/11 v1.4.0 — PM22 GERCEK STOCHASTIC MASKE:
+                    # core/masks16/STOCH{kanal}Mask_1x1.bin (512x512 uint16, 1..4093)
+                    # Olculen: komsu korelasyon -0.554 (blue-noise), 4x4 std 81.7
+                    # Eski Bayer 8x8 (corr +0.9) -> 8 satir periyodu -> CIZGI.
                     _yy8, _xx8 = np.mgrid[0:_H, 0:_W]
-                    _satir = (_yy8 & 7)
-                    _es = (_BAYER8[(_yy8 + (_sl_i * 3)) & 7,
-                                  (_xx8 + (_p_i * 5)) & 7] / np.float32(64.0))
-                    # 27/11 v1.3.0 — PM22 BIREBIR (olculmus):
-                    # satir grubu -> TUM pikseller uzerinden ortalama dolu bit
-                    #   y%8=0 -> 0.304   y%8=1 -> 3.474  y%8=2 -> 2.167
-                    #   y%8=3 -> 0.684   y%8=4 -> 8.474  y%8=5,6,7 -> 0
-                    # (ortalama ton ~%16.8 icin; ton carpaniyla olceklenir)
-                    _ORT = np.array([0.304, 3.474, 2.167, 0.684, 8.474, 0.0, 0.0, 0.0],
-                                    dtype=np.float32)
-                    # ton: nb 0..4 -> 0..1 (nbU max ~2.0)
-                    _t01 = np.clip(_nbU / np.float32(2.0), 0.0, 1.0)
-                    # ton 0.168 (ortalama) iken olcek 1.0 olmali -> /0.168
-                    # _t01 ortalama ~0.052 (nbU 0.105 / 2.0)
-                    # hedef: ort_bit toplam 15.1 (PM22) -> olcek ~3.5
-                    # TESHIS: _t01 ort ~0.0525 ama _olcek uygulaninca hedef_bit
-                    # ort 0.341 cikiyor -> _t01 aslinda ~0.001.
-                    # _nbU ort 0.105 / 2.0 = 0.0525 BEKLENIYOR.
-                    # Kontrol: _t01'i dogrudan olcekle.
-                    # 27/11 KALIBRASYON (olculdu):
-                    #   t01 ort 0.030, ORT ort 1.888 -> hedef_bit ort 0.0566*olcek
-                    #   hedef pbit ort 0.265 (PM22 kanal dolulugu)
-                    #   hedef_bit ort = 0.265*16 = 4.24
-                    #   olcek = 4.24 / (0.030*1.888) = 74.9  -> 75
-                    _olcek = np.clip(_t01 * np.float32(75.0), 0.0, 12.0)
-                    _hedef_bit = _ORT[_satir] * _olcek     # 0..16 arasi
-                    _pbit = np.clip(_hedef_bit / np.float32(16.0), 0.0, 1.0)
+                    _maske16 = None
+                    try:
+                        import core.dither as _d16
+                        _maske16 = _d16.d16_yukle(
+                            'STOCH%dMask_1x1.bin' % (int(_sl) % 8))
+                    except Exception:
+                        _maske16 = None
+                    if _maske16 is None:
+                        # yedek: eski Bayer
+                        _es = (_BAYER8[(_yy8 + (_sl_i * 3)) & 7,
+                                      (_xx8 + (_p_i * 5)) & 7] / np.float32(64.0))
+                    else:
+                        # 512x512 dondurulerek dose, 0..1 esik (12-bit)
+                        _mi_y = (_yy8 + _sl_i * 37) % 512
+                        _mi_x = (_xx8 + _p_i * 41) % 512
+                        _es = (_maske16[_mi_y, _mi_x].astype(np.float32)
+                               / np.float32(4096.0))
+                    _tn = np.clip(_nf2.astype(np.float32) / np.float32(8.0), 0.0, 1.0)
                     _kel = np.zeros((_H, _W), dtype=np.uint32)
+                    # 27/11: 16 bit = 16 alt-satir. Her bit _b SADECE satir
+                    # (_b % 8) grubunda dolu OLABILIR (PM22 olcumu). Ama desen
+                    # ayni satir grubunda tekrar etmesin diye maske fazi hem
+                    # satir hem de bit'e gore kaydirilir (satir basina farkli
+                    # bit cifti -> 8 satirlik periyot kirilir).
+                    # 27/11 v1.4.2: bit _b satir grubuna BAGLANMAZ. Her bit
+                    # her satirda dolu olabilir; doluluk orani satir grubuna
+                    # gore olceklenir (PM22 olcumu: y%8=4 en dolu).
+                    # Boylece 8'li periyot tamamen kirilir.
+                    _AG8 = np.array([0.30, 0.75, 0.76, 0.77, 1.00, 0.0, 0.0, 0.0],
+                                    dtype=np.float32)
+                    _tn2 = np.clip(_tn * _AG8[_yy8 & 7], 0.0, 1.0)
                     for _b in range(16):
-                        _faz = ((_es + np.float32(_b) * np.float32(0.61803))
-                                % np.float32(1.0))
-                        _on = (_faz < _pbit)
+                        _fy = (_yy8 + _b * 64 + _sl_i * 128) % 512
+                        _fx = (_xx8 + _b * 37 + _p_i * 91) % 512
+                        if _maske16 is not None:
+                            _e = (_maske16[_fy, _fx].astype(np.float32)
+                                  / np.float32(4096.0))
+                        else:
+                            _e = _es
+                        _on = (_tn2 > _e)
                         _kel |= (_on.astype(np.uint32) << _b)
                     _kel = _kel.astype(np.uint32)
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
