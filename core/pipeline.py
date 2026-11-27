@@ -674,47 +674,56 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # Olculen doluluk: [0.167, 0.495, 0.561, 0.278, 0.619, 0, 0, 0]
                     # Bizim eski kod 16 alt-satirin HEPSINI dolduruyordu ->
                     # yanlis ton + 8 satir periyodu (CIZGI).
-                    _nbU = _nb.astype(np.float32)
+                    # 27/11: _nb (0..4 int) yerine _nf2 (0..8) kullan ->
+                    # ton cozunurlugu 2 kat artar, doluluk hedefe yaklasir.
+                    _nbU = _nf2.astype(np.float32) * np.float32(0.5)
                     _H, _W = _t.shape
                     _sl_i = int(_sl)
                     _p_i = int(p)
+
+                    # 27/11 v1.2.9 — PM22 BIREBIR (olculmus y-bit matrisi):
+                    # PM22'de dolu alt-satir = kelime biti + satir y%8 iliskisi:
+                    #   y%8=0 -> yalniz tek bitler (0,2,4..) cift satirlar bos
+                    #   y%8=1 -> TUM 16 bit (en dolu, 0.174/0.261)
+                    #   y%8=2 -> 0.056/0.215
+                    #   y%8=3 -> 0.003/0.083 (cok seyrek)
+                    #   y%8=4 -> 0.595/0.464 (en dolu)
+                    #   y%8=5,6,7 -> BOS
+                    # Ortalama bit doluluklari: cift bitler 0.1034, tek bitler 0.1326
                     _yy8, _xx8 = np.mgrid[0:_H, 0:_W]
-                    _ph = (_BAYER8[(_yy8 + (_sl_i * 3)) & 7,
-                                  (_xx8 + (_p_i * 5)) & 7] / np.float32(4.0))
-                    # 27/11 v1.2.8: PM22'nin OLCULMUS alt-satir profili
-                    # [0.167, 0.495, 0.561, 0.278, 0.619, 0, 0, 0]
-                    # Her satir yalnizca KENDI alt-satirini doldurur.
-                    _AG = np.array([0.167, 0.495, 0.561, 0.278, 0.619, 0.0, 0.0, 0.0],
-                                   dtype=np.float32)
                     _satir = (_yy8 & 7)
-                    # ton olcegi: agirliklar toplami 2.12 ve satir secimi 1/8
-                    # -> ton = nbU/4 * 8 / 2.12 (nb=4 -> tam dolu)
-                    # nb=0..4 -> _nbU 0..2.0 (0.96/4 carpanli)
-                    # hedef: nb=4'te tam dolu. _nbU max 2.0 -> x0.5
-                    _ton = np.clip(_nbU * np.float32(0.5), 0.0, 1.0)
-                    # Bayer esigi 0..1
-                    # 27/11: 16 yerine 64 esik seviyesi -> daha cok kelime cesidi
-                    _es = _ph / np.float32(16.0) + np.float32(0.0078) * np.float32(
-                        (_yy8 * 7 + _xx8 * 13) & 7)
+                    _es = (_BAYER8[(_yy8 + (_sl_i * 3)) & 7,
+                                  (_xx8 + (_p_i * 5)) & 7] / np.float32(64.0))
+                    # 27/11 v1.3.0 — PM22 BIREBIR (olculmus):
+                    # satir grubu -> TUM pikseller uzerinden ortalama dolu bit
+                    #   y%8=0 -> 0.304   y%8=1 -> 3.474  y%8=2 -> 2.167
+                    #   y%8=3 -> 0.684   y%8=4 -> 8.474  y%8=5,6,7 -> 0
+                    # (ortalama ton ~%16.8 icin; ton carpaniyla olceklenir)
+                    _ORT = np.array([0.304, 3.474, 2.167, 0.684, 8.474, 0.0, 0.0, 0.0],
+                                    dtype=np.float32)
+                    # ton: nb 0..4 -> 0..1 (nbU max ~2.0)
+                    _t01 = np.clip(_nbU / np.float32(2.0), 0.0, 1.0)
+                    # ton 0.168 (ortalama) iken olcek 1.0 olmali -> /0.168
+                    # _t01 ortalama ~0.052 (nbU 0.105 / 2.0)
+                    # hedef: ort_bit toplam 15.1 (PM22) -> olcek ~3.5
+                    # TESHIS: _t01 ort ~0.0525 ama _olcek uygulaninca hedef_bit
+                    # ort 0.341 cikiyor -> _t01 aslinda ~0.001.
+                    # _nbU ort 0.105 / 2.0 = 0.0525 BEKLENIYOR.
+                    # Kontrol: _t01'i dogrudan olcekle.
+                    # 27/11 KALIBRASYON (olculdu):
+                    #   t01 ort 0.030, ORT ort 1.888 -> hedef_bit ort 0.0566*olcek
+                    #   hedef pbit ort 0.265 (PM22 kanal dolulugu)
+                    #   hedef_bit ort = 0.265*16 = 4.24
+                    #   olcek = 4.24 / (0.030*1.888) = 74.9  -> 75
+                    _olcek = np.clip(_t01 * np.float32(75.0), 0.0, 12.0)
+                    _hedef_bit = _ORT[_satir] * _olcek     # 0..16 arasi
+                    _pbit = np.clip(_hedef_bit / np.float32(16.0), 0.0, 1.0)
                     _kel = np.zeros((_H, _W), dtype=np.uint32)
-                    # 27/11: her alt-satir KENDI fazini kullanir (PM22 gibi
-                    # 4.798 farkli kelime olusur, cizgi/kum gider).
-                    _es_t = [_es]
-                    for _b in range(8):
-                        _w = _AG[_b]
-                        if _w <= 0.0:
-                            continue
-                        _lim = _ton * np.float32(_w)
-                        # alt-satir _b icin kendi faz ofseti
-                        _eb = ((_es + np.float32(_b) * np.float32(0.6180))
-                               % np.float32(1.0))
-                        _on = (_satir == _b) & (_eb < _lim)
+                    for _b in range(16):
+                        _faz = ((_es + np.float32(_b) * np.float32(0.61803))
+                                % np.float32(1.0))
+                        _on = (_faz < _pbit)
                         _kel |= (_on.astype(np.uint32) << _b)
-                        # 2. yarim: tamamen farkli faz (altin oran x2)
-                        _eb2 = ((_es + np.float32(_b) * np.float32(0.3819)
-                                 + np.float32(0.5)) % np.float32(1.0))
-                        _on2 = (_satir == _b) & (_eb2 < _lim)
-                        _kel |= (_on2.astype(np.uint32) << (8 + _b))
                     _kel = _kel.astype(np.uint32)
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
                     # uretildi. v1.0.44'un eski "ilk n cift + permutasyon"
