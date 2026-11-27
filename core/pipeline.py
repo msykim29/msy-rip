@@ -663,26 +663,58 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # geliyordu -> sadece 10 kelime -> 8 satir periyodu -> CIZGI.
                     # YENI: her alt-satir icin AYRI esik (16 katmanli Bayer).
                     # Dolu bit SAYISI tonla belirlenir -> doluluk korunur.
-                    # 27/11 MSY v1.2.6 (PM22 REFERANS):
-                    # PM22'de 16 alt-satirin her biri icin AYRI dither karari
-                    # var -> 4.798 farkli kelime. Bizde bit konumu 4 fazdan
-                    # geldigi icin sadece 10 kelime olusuyor ve desen 8 satir
-                    # periyoduyla tekrar edip CIZGI birakiyor.
-                    # YENI: faz = Bayer 8x8 (0..15.75) + her alt-satir kendi
-                    # kaydirmasi -> kelime cesitliligi artar, ton korunur.
-                    # 27/11 FIX: _nbU tanimi temizlik sirasinda silinmisti ->
-                    # "'_nbU' is not defined" hatasi rip'i tamamen durduruyordu.
+                    # 27/11 MSY v1.2.8 (PM22 BIREBIR DESEN):
+                    # PM22 PRT'si piksel piksel cozuldu. Gercek yapi:
+                    #   y%8=0 -> 1 alt-satir  (bit 0)
+                    #   y%8=1 -> 8 alt-satir  (bit 8..15)   <- EN DOLU
+                    #   y%8=2 -> 4 alt-satir  (bit 1,2,9,10)
+                    #   y%8=3 -> 4 alt-satir  (bit 4,12 + seyrek)
+                    #   y%8=4 -> 8 alt-satir  (bit 4..7,12..15)
+                    #   y%8=5,6,7 -> BOS
+                    # Olculen doluluk: [0.167, 0.495, 0.561, 0.278, 0.619, 0, 0, 0]
+                    # Bizim eski kod 16 alt-satirin HEPSINI dolduruyordu ->
+                    # yanlis ton + 8 satir periyodu (CIZGI).
                     _nbU = _nb.astype(np.float32)
-                    _n16 = np.clip(_nbU * 4.0, 0.0, 16.0)
-                    _yy16, _xx16 = np.mgrid[0:_H, 0:_W]
-                    _ph = (_BAYER8[(_yy16 + (_sl_i * 3)) & 7,
-                                  (_xx16 + (_p_i * 5)) & 7] / np.float32(4.0))
+                    _H, _W = _t.shape
+                    _sl_i = int(_sl)
+                    _p_i = int(p)
+                    _yy8, _xx8 = np.mgrid[0:_H, 0:_W]
+                    _ph = (_BAYER8[(_yy8 + (_sl_i * 3)) & 7,
+                                  (_xx8 + (_p_i * 5)) & 7] / np.float32(4.0))
+                    # 27/11 v1.2.8: PM22'nin OLCULMUS alt-satir profili
+                    # [0.167, 0.495, 0.561, 0.278, 0.619, 0, 0, 0]
+                    # Her satir yalnizca KENDI alt-satirini doldurur.
+                    _AG = np.array([0.167, 0.495, 0.561, 0.278, 0.619, 0.0, 0.0, 0.0],
+                                   dtype=np.float32)
+                    _satir = (_yy8 & 7)
+                    # ton olcegi: agirliklar toplami 2.12 ve satir secimi 1/8
+                    # -> ton = nbU/4 * 8 / 2.12 (nb=4 -> tam dolu)
+                    # nb=0..4 -> _nbU 0..2.0 (0.96/4 carpanli)
+                    # hedef: nb=4'te tam dolu. _nbU max 2.0 -> x0.5
+                    _ton = np.clip(_nbU * np.float32(0.5), 0.0, 1.0)
+                    # Bayer esigi 0..1
+                    # 27/11: 16 yerine 64 esik seviyesi -> daha cok kelime cesidi
+                    _es = _ph / np.float32(16.0) + np.float32(0.0078) * np.float32(
+                        (_yy8 * 7 + _xx8 * 13) & 7)
                     _kel = np.zeros((_H, _W), dtype=np.uint32)
-                    for _s in range(16):
-                        _faz = (_ph + np.float32(_s) * np.float32(0.9375))
-                        _faz = _faz - np.float32(16.0) * np.floor(_faz / np.float32(16.0))
-                        _on = (_faz < _n16)
-                        _kel |= (_on.astype(np.uint32) << _s)
+                    # 27/11: her alt-satir KENDI fazini kullanir (PM22 gibi
+                    # 4.798 farkli kelime olusur, cizgi/kum gider).
+                    _es_t = [_es]
+                    for _b in range(8):
+                        _w = _AG[_b]
+                        if _w <= 0.0:
+                            continue
+                        _lim = _ton * np.float32(_w)
+                        # alt-satir _b icin kendi faz ofseti
+                        _eb = ((_es + np.float32(_b) * np.float32(0.6180))
+                               % np.float32(1.0))
+                        _on = (_satir == _b) & (_eb < _lim)
+                        _kel |= (_on.astype(np.uint32) << _b)
+                        # 2. yarim: tamamen farkli faz (altin oran x2)
+                        _eb2 = ((_es + np.float32(_b) * np.float32(0.3819)
+                                 + np.float32(0.5)) % np.float32(1.0))
+                        _on2 = (_satir == _b) & (_eb2 < _lim)
+                        _kel |= (_on2.astype(np.uint32) << (8 + _b))
                     _kel = _kel.astype(np.uint32)
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
                     # uretildi. v1.0.44'un eski "ilk n cift + permutasyon"

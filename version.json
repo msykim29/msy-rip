@@ -1,5 +1,5 @@
 {
-  "version": "1.2.7",
+  "version": "1.2.8",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "v1.2.6 KRITIK FIX: temizlik sirasinda _nbU tanimi silinmisti, rip '_nbU' is not defined hatasi verip hicbir dosya islemiyordu. Duzeltildi. Desen v1.2.6 ile ayni: 16 alt-satir icin ayri dither fazi (Bayer 8x8 tabanli), kelime cesitliligi 31-32, ton 0.25/0.50/0.75 birebir korunuyor."
+  "notes": "v1.2.7 calisiyor. v1.2.8 deseni PM22nin GERCEK olculen alt-satir profiline gore kuruldu: [0.167, 0.495, 0.561, 0.278, 0.619, 0, 0, 0] (yalniz ilk 5 alt-satir dolu, 6-7-8 bos). Her alt-satir kendi fazi ile doldurulur. corr(y,y+8): 0.956 -> 0.763 (PM22 0.793). NOT: doluluk kalibrasyonu hala PM22nin altinda (~0.03 vs 0.118) - ton ayari gerekebilir."
 }
