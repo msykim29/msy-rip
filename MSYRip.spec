@@ -52,7 +52,9 @@ a = Analysis(
            ('core/masks/mask102.bin', 'core/masks'),
            # 23/11: PM22 Dither16 maskeleri (130 dosya, 512x512 uint16)
            ('core/masks16', 'core/masks16'),
-           ('resources/Ditherparams.xml', 'resources')],
+           ('resources/Ditherparams.xml', 'resources'),
+           # 28/11: PM22 dither.dll + 24 bagimlilik
+           ('resources/dither_native', 'resources/dither_native')],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

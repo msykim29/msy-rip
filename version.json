@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "GERI DONUS: v1.2.2 (MSY onayli) dither cekirdegi geri getirildi. v1.3-v1.4 denemeleri (satir grubu carpanlari) yatay cizgi ve soluk baski uretti. v1.2.2: cizgi YOK, kum VAR. Maske altyapisi (core/masks16 + d16_yukle) korundu, sonraki adimda dogru sekilde baglanacak."
+  "notes": "PM22 dither.dll motoru uygulamaya gomuldu (B plani): 24 DLL resources/dither_native/ altinda, core/dither_native.py ctypes koprusu ile StochasticHalftone cagiriyor. DLL yuklenemezse eski dither aynen calisir (fallback). v1.5.0 tabanli (cizgisiz)."
 }

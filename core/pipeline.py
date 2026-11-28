@@ -21,6 +21,10 @@ from . import icc as icc_mod
 from . import prt as prt_mod
 from . import spot as spot_mod
 from .halftone import halftone_kanal, halftone_sofm
+try:
+    from . import dither_native as _dn
+except Exception:
+    _dn = None
 from .settings import Ayarlar
 from .tif import piksel_oku
 
@@ -667,6 +671,36 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                             _kel[_yi, _xi] = _w
                     _kel = _kel.astype(np.uint32)
                     _kel = _kel.astype(np.uint32)
+                    # 28/11 v1.6.0 — PM22 GERCEK MOTORU (dither.dll):
+                    # DLL yuklenebiliyorsa StochasticHalftone.Action16
+                    # cikisini kullan. Yuklenemezse yukaridaki yerel dither
+                    # (Bayer/hash) aynen gecerli -> BOZULMA RISKI YOK.
+                    if _dn is not None:
+                        try:
+                            if _dn.kullanilabilir():
+                                _key = ('nd', _sl_i, _g3.shape)
+                                _nd = _dn._CACHE.get(_key)
+                                if _nd is None:
+                                    _nd = _dn.Pm22Dither(kanal_sayisi=8,
+                                                         seviye=16)
+                                    _dn._CACHE[_key] = _nd
+                                _mask8 = _nd.uygula(_g3)
+                                if _mask8 is not None and _mask8.any():
+                                    # 8-bit nokta maskesi -> 16-bit kelime
+                                    _m = _mask8.astype(np.uint32)
+                                    _kel = np.zeros(_t.shape, dtype=np.uint32)
+                                    for _b in range(16):
+                                        _bit = ((_m >> (_b % 8)) & 1)
+                                        _kel |= (_bit.astype(np.uint32) << _b)
+                                    _kel = _kel.astype(np.uint32)
+                                    if log is not None and p == 0 and _sl == 0:
+                                        log('PM22 native dither: %d/%d dolu'
+                                            % (int(_mask8.sum()),
+                                               _mask8.size))
+                        except Exception as _nde:
+                            if log is not None and p == 0 and _sl == 0:
+                                log('native dither atlandi: %s'
+                                    % str(_nde)[:80])
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
                     # uretildi. v1.0.44'un eski "ilk n cift + permutasyon"
                     # blogu BURADAYDI ve _kat'i yeniden hesaplayip _kel'in
