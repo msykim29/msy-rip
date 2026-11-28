@@ -12,7 +12,7 @@ import sys
 import tempfile
 import urllib.request
 
-SURUM = "1.4.1"
+SURUM = "1.5.0"
 
 # MSY: repo adı GitHub'a yüklerken buraya yazılacak
 REPO = "msykim29/msy-rip"

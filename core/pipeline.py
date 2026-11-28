@@ -523,31 +523,13 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
         _maske_onbellek[_n] = _m
         return _m
 
-    # 26/11 MSY: KUM GURULTUSU COZUMU — Bayer 8x8 esikli matris.
-    # Onceki maske 4 slot x 4 maske kullaniyordu; desen tekrar ediyor ve
-    # kesirli ton (t8 - floor) her pikselde ayni esikle karsilastirildigi icin
-    # gurultu "tuz-biber" halinde degil DEMET halinde cikiyordu (yuksek ISO).
-    # Bayer 8x8: 64 farkli esik, homojen dagilim, goz tarafindan puruzsuz
-    # algilanir. 4 kanal icin 4 faz kaydirmasi (slot) korunur.
-    _BAYER8 = np.array([
-        [ 0, 32,  8, 40,  2, 34, 10, 42],
-        [48, 16, 56, 24, 50, 18, 58, 26],
-        [12, 44,  4, 36, 14, 46,  6, 38],
-        [60, 28, 52, 20, 62, 30, 54, 22],
-        [ 3, 35, 11, 43,  1, 33,  9, 41],
-        [51, 19, 59, 27, 49, 17, 57, 25],
-        [15, 47,  7, 39, 13, 45,  5, 37],
-        [63, 31, 55, 23, 61, 29, 53, 21]], dtype=np.float32)
-
-    def _bayer_tam(h, w, slot):
-        fx = int(slot) % 4          # kanal fazi: 0/2/4/6 sutun kaydirma
-        fy = int(slot) // 4
-        yy, xx = np.mgrid[0:h, 0:w]
-        return _BAYER8[(yy + fy * 4) % 8, (xx + fx * 2) % 8]
-
     def _dither_maske(h, w, slot, blok):
-        # Bayer 8x8 * 4 (0..252) -> _mf = /254 ile 0..0.992 esik
-        return (_bayer_tam(h, w, slot) * 4.0).astype(np.uint8)
+        n_ = _mask_id(slot)
+        if _dm is None or not _dm.maske_var(n_):
+            yy, xx = np.mgrid[0:h, 0:w]
+            return ((yy * 137 + xx * 71) % 255).astype(np.uint8)
+        return _dm.esik_matrisi(h, w, n_, ofs_x=(blok * 37) % 256,
+                                ofs_y=(blok * 53) % 256)
 
     _POZ = np.array([4 ** d for d in range(8)], dtype=np.uint32)
 
@@ -622,12 +604,7 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     _g3 = np.clip(np.clip(_g, 0.0, 1.0) * _tc46, 0.0, 1.0)
                     _t = _g3 * 8.0
                     _m8 = _dither_maske(_t.shape[0], _t.shape[1], _sl, p).astype(np.float32)
-                    _mf = _m8 / 254.0                    # 0..1 eşik (mürekkep)
-                    # 26/11 KESIN: bit sayisi esigi v1.2.2 ile BIREBIR ayni
-                    # (rng 1234) -> ton/renk garanti korunur. Kumlanma
-                    # duzeltmesi yalnizca _dither_maske (Bayer) ve _kel bit
-                    # konumu uzerinden yapilir; esik DEGISMEZ.
-                    _mf_bit = np.random.default_rng(1234).random(_t.shape)
+                    _mf = _m8 / 254.0                    # 0..1 eşik
                     # 25/11: dolu alt-satir sayisi (ton x 8 + dither) — 0..8
                     _t8v = _t
                     _nf2 = np.floor(_t8v).astype(np.int32)
@@ -648,118 +625,53 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # 1.20 ile carpalim; kesirli kismi hash ile olasiliksal yap.
                     _nb_f = np.clip((_nf2.astype(np.float32) / 4.0) * 0.96, 0, 4)
                     _nb = np.floor(_nb_f).astype(np.int32)
-                    # 26/11: kesirli kisim Bayer esigiyle -> gurultu DEMET degil
-                    # homojen dagilir (once rng.random idi -> tuz-biber).
-                    _nb = _nb + ((_nb_f - _nb) > _mf_bit).astype(np.int32)
+                    _nb = _nb + (np.random.default_rng(1234).random(_nb.shape)
+                                 < (_nb_f - _nb)).astype(np.int32)
                     _nb = np.clip(_nb, 0, 4)   # grup basina dolu bit
                     _cols_x = np.arange(_t.shape[1], dtype=np.int64)
                     _kel = np.zeros(_t.shape, dtype=np.uint32)
-                    # 27/11 MSY (PM22 REFERANS — KESIN COZUM):
-                    # PM22 PRT'si piksel piksel olculdu:
-                    #   - 16 alt-satirin her biri BAGIMSIZ dither karari
-                    #   - 4.798 farkli kelime (bizde 10 idi)
-                    #   - bit duzlemi doluluklari 0.1035 / 0.1326 donusumlu
-                    # Bizim eski kod: bit konumu Bayer hucresinin 4 fazindan
-                    # geliyordu -> sadece 10 kelime -> 8 satir periyodu -> CIZGI.
-                    # YENI: her alt-satir icin AYRI esik (16 katmanli Bayer).
-                    # Dolu bit SAYISI tonla belirlenir -> doluluk korunur.
-                    # 27/11 MSY v1.2.8 (PM22 BIREBIR DESEN):
-                    # PM22 PRT'si piksel piksel cozuldu. Gercek yapi:
-                    #   y%8=0 -> 1 alt-satir  (bit 0)
-                    #   y%8=1 -> 8 alt-satir  (bit 8..15)   <- EN DOLU
-                    #   y%8=2 -> 4 alt-satir  (bit 1,2,9,10)
-                    #   y%8=3 -> 4 alt-satir  (bit 4,12 + seyrek)
-                    #   y%8=4 -> 8 alt-satir  (bit 4..7,12..15)
-                    #   y%8=5,6,7 -> BOS
-                    # Olculen doluluk: [0.167, 0.495, 0.561, 0.278, 0.619, 0, 0, 0]
-                    # Bizim eski kod 16 alt-satirin HEPSINI dolduruyordu ->
-                    # yanlis ton + 8 satir periyodu (CIZGI).
-                    # 27/11: _nb (0..4 int) yerine _nf2 (0..8) kullan ->
-                    # ton cozunurlugu 2 kat artar, doluluk hedefe yaklasir.
-                    _nbU = _nf2.astype(np.float32) * np.float32(0.5)
+                    # 25/11 MSY (KESIN CIZGI COZUMU): her pikselin HER grup
+                    # bit konumu BAGIMSIZ rastgele secilir. Faz yerine hash
+                    # kullaniliyor: x, y, slot, blok, grup -> 16-bit tohum.
+                    # Dolu bit SAYISI = _nb (ton) DEGISMEZ -> renk korunur.
+                    _cols_b = np.broadcast_to(_cols_x.astype(np.uint64),
+                                              _t.shape)
+                    _rows_b = np.broadcast_to(
+                        _r_mutlak.astype(np.uint64)[:, None], _t.shape)
+                    # 25/11 MSY: Python tabanli hash (numpy uint64 tasmasi yok).
+                    # Her (x, y, slot, blok, grup) icin 32-bit tohum -> xorshift.
                     _H, _W = _t.shape
+                    _kel = np.zeros((_H, _W), dtype=np.uint32)
                     _sl_i = int(_sl)
                     _p_i = int(p)
-
-                    # 27/11 v1.2.9 — PM22 BIREBIR (olculmus y-bit matrisi):
-                    # PM22'de dolu alt-satir = kelime biti + satir y%8 iliskisi:
-                    #   y%8=0 -> yalniz tek bitler (0,2,4..) cift satirlar bos
-                    #   y%8=1 -> TUM 16 bit (en dolu, 0.174/0.261)
-                    #   y%8=2 -> 0.056/0.215
-                    #   y%8=3 -> 0.003/0.083 (cok seyrek)
-                    #   y%8=4 -> 0.595/0.464 (en dolu)
-                    #   y%8=5,6,7 -> BOS
-                    # Ortalama bit doluluklari: cift bitler 0.1034, tek bitler 0.1326
-                    # 27/11 v1.3.1 — PM22 BLUE-NOISE MASKE (GERCEK COZUM):
-                    # PM22'nin dither.dll'i 256x256 BLUE-NOISE maske kullaniyor
-                    # (DitherConfig.ini: UseNewMasks=1, SOFMMaxDot=0.6).
-                    # Olculen maske: komsu korelasyon -0.349 (blue noise imzasi),
-                    # 4x4 blok std 5.5, dusuk/yuksek frekans orani 0.001
-                    # (mukemmel yuksek frekansli = kum/izgara YOK).
-                    # Bizim Bayer matrisi bunu saglamiyordu -> CIZGI.
-                    # 27/11 v1.4.0 — PM22 GERCEK STOCHASTIC MASKE:
-                    # core/masks16/STOCH{kanal}Mask_1x1.bin (512x512 uint16, 1..4093)
-                    # Olculen: komsu korelasyon -0.554 (blue-noise), 4x4 std 81.7
-                    # Eski Bayer 8x8 (corr +0.9) -> 8 satir periyodu -> CIZGI.
-                    _yy8, _xx8 = np.mgrid[0:_H, 0:_W]
-                    _maske16 = None
-                    try:
-                        import core.dither as _d16
-                        _maske16 = _d16.d16_yukle(
-                            'STOCH%dMask_1x1.bin' % (int(_sl) % 8))
-                    except Exception:
-                        _maske16 = None
-                    if _maske16 is None:
-                        # yedek: eski Bayer
-                        _es = (_BAYER8[(_yy8 + (_sl_i * 3)) & 7,
-                                      (_xx8 + (_p_i * 5)) & 7] / np.float32(64.0))
-                    else:
-                        # 512x512 dondurulerek dose, 0..1 esik (12-bit)
-                        _mi_y = (_yy8 + _sl_i * 37) % 512
-                        _mi_x = (_xx8 + _p_i * 41) % 512
-                        _es = (_maske16[_mi_y, _mi_x].astype(np.float32)
-                               / np.float32(4096.0))
-                    _tn = np.clip(_nf2.astype(np.float32) / np.float32(8.0), 0.0, 1.0)
-                    _kel = np.zeros((_H, _W), dtype=np.uint32)
-                    # 27/11: 16 bit = 16 alt-satir. Her bit _b SADECE satir
-                    # (_b % 8) grubunda dolu OLABILIR (PM22 olcumu). Ama desen
-                    # ayni satir grubunda tekrar etmesin diye maske fazi hem
-                    # satir hem de bit'e gore kaydirilir (satir basina farkli
-                    # bit cifti -> 8 satirlik periyot kirilir).
-                    # 27/11 v1.4.2: bit _b satir grubuna BAGLANMAZ. Her bit
-                    # her satirda dolu olabilir; doluluk orani satir grubuna
-                    # gore olceklenir (PM22 olcumu: y%8=4 en dolu).
-                    # Boylece 8'li periyot tamamen kirilir.
-                    # 28/11 MSY — PM22 SATIR GRUBU MANTIGI (olculmus):
-                    # PRT'de 16 bit = 16 alt-satir. Bit _b yalnizca satir
-                    # grubu (_b % 8) icin anlamli (PM22: y%8=1 -> 8 bit,
-                    # y%8=2 -> 4 bit, y%8=5,6,7 -> BOS). Onceki surumde tum
-                    # 16 bit her satirda dolduruluyordu -> satirlar arasinda
-                    # YOGUNLUK BANTLARI -> YATAY CIZGI.
-                    _AG8 = np.array([0.30, 0.75, 0.76, 0.77, 1.00, 0.0, 0.0, 0.0],
-                                    dtype=np.float32)
-                    _satir = (_yy8 & 7)
-                    _tn_s = np.clip(_tn * _AG8[_satir], 0.0, 1.0)
-                    for _b in range(16):
-                        _g = _b & 7
-                        _fy = (_yy8 + _b * 64 + _sl_i * 128) % 512
-                        _fx = (_xx8 + _b * 37 + _p_i * 91) % 512
-                        if _maske16 is not None:
-                            _e = (_maske16[_fy, _fx].astype(np.float32)
-                                  / np.float32(4096.0))
-                        else:
-                            _e = _es
-                        # yalnizca kendi satir grubunda dolu olabilir
-                        _on = (_satir == _g) & (_tn_s > _e)
-                        _kel |= (_on.astype(np.uint32) << _b)
+                    for _xi in range(_W):
+                        _x_seed = (_xi * 2654435761
+                                   + _sl_i * 40503 + _p_i * 2246822519) & 0xFFFFFFFF
+                        _col_nb = _nb[:, _xi]
+                        for _yi in range(_H):
+                            _nbv = int(_col_nb[_yi])
+                            if _nbv <= 0:
+                                continue
+                            _h = (_x_seed
+                                  + _yi * 374761393) & 0xFFFFFFFF
+                            _w = 0
+                            for _g in range(4):
+                                _hg = (_h ^ (_g * 668265263)) & 0xFFFFFFFF
+                                _hg = ((_hg ^ (_hg >> 15)) * 2246822519) & 0xFFFFFFFF
+                                _hg = (_hg ^ (_hg >> 13)) & 0xFFFFFFFF
+                                _gr = 0
+                                for _k in range(_nbv):
+                                    _bit = (_hg >> (_k * 2)) & 3
+                                    _gr |= 1 << _bit
+                                _w |= (_gr << (4 * _g))
+                            _kel[_yi, _xi] = _w
+                    _kel = _kel.astype(np.uint32)
                     _kel = _kel.astype(np.uint32)
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
                     # uretildi. v1.0.44'un eski "ilk n cift + permutasyon"
                     # blogu BURADAYDI ve _kat'i yeniden hesaplayip _kel'in
                     # uzerine yaziyordu -> tum desen denemeleri bosa gidiyordu.
                     # KALDIRILDI. Adresleme v1.0.44 ile ayni (renk korunur).
-                    # 28/11: 16 bit, 8 alt-satir grubuna yayiliyor; her
-                    # satirda 2 bit aktif (b%8 esit). Bu PM22'nin yapisi.
                     _hedef_r = 8 * gecerli + _sl
                     _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
                     plane[_hedef_r[_ok]] = _kel[_ok].astype('>u2')

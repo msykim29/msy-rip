@@ -1,5 +1,5 @@
 {
-  "version": "1.4.1",
+  "version": "1.5.0",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "YATAY CIZGI COZUMU: v1.4.0 satir-grubu carpanlari (0.30/0.75/0.76/0.77/1.00) yukseklikte 5 yogunluk bandi olusturup yatay cizgi yapiyordu. Bit _b artik yalnizca kendi satir grubunda (b%8) dolu olabiliyor, 5/6/7 bantlari bos -> bant kaymasi yok, 8 satir periyodu kirildi. Kelime cesitliligi 36.984."
+  "notes": "GERI DONUS: v1.2.2 (MSY onayli) dither cekirdegi geri getirildi. v1.3-v1.4 denemeleri (satir grubu carpanlari) yatay cizgi ve soluk baski uretti. v1.2.2: cizgi YOK, kum VAR. Maske altyapisi (core/masks16 + d16_yukle) korundu, sonraki adimda dogru sekilde baglanacak."
 }
