@@ -730,10 +730,18 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # her satirda dolu olabilir; doluluk orani satir grubuna
                     # gore olceklenir (PM22 olcumu: y%8=4 en dolu).
                     # Boylece 8'li periyot tamamen kirilir.
+                    # 28/11 MSY — PM22 SATIR GRUBU MANTIGI (olculmus):
+                    # PRT'de 16 bit = 16 alt-satir. Bit _b yalnizca satir
+                    # grubu (_b % 8) icin anlamli (PM22: y%8=1 -> 8 bit,
+                    # y%8=2 -> 4 bit, y%8=5,6,7 -> BOS). Onceki surumde tum
+                    # 16 bit her satirda dolduruluyordu -> satirlar arasinda
+                    # YOGUNLUK BANTLARI -> YATAY CIZGI.
                     _AG8 = np.array([0.30, 0.75, 0.76, 0.77, 1.00, 0.0, 0.0, 0.0],
                                     dtype=np.float32)
-                    _tn2 = np.clip(_tn * _AG8[_yy8 & 7], 0.0, 1.0)
+                    _satir = (_yy8 & 7)
+                    _tn_s = np.clip(_tn * _AG8[_satir], 0.0, 1.0)
                     for _b in range(16):
+                        _g = _b & 7
                         _fy = (_yy8 + _b * 64 + _sl_i * 128) % 512
                         _fx = (_xx8 + _b * 37 + _p_i * 91) % 512
                         if _maske16 is not None:
@@ -741,7 +749,8 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                                   / np.float32(4096.0))
                         else:
                             _e = _es
-                        _on = (_tn2 > _e)
+                        # yalnizca kendi satir grubunda dolu olabilir
+                        _on = (_satir == _g) & (_tn_s > _e)
                         _kel |= (_on.astype(np.uint32) << _b)
                     _kel = _kel.astype(np.uint32)
                     # 25/11 MSY: _kel yukarida (PM22 desen tablosu + x/y faz)
@@ -749,6 +758,8 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                     # blogu BURADAYDI ve _kat'i yeniden hesaplayip _kel'in
                     # uzerine yaziyordu -> tum desen denemeleri bosa gidiyordu.
                     # KALDIRILDI. Adresleme v1.0.44 ile ayni (renk korunur).
+                    # 28/11: 16 bit, 8 alt-satir grubuna yayiliyor; her
+                    # satirda 2 bit aktif (b%8 esit). Bu PM22'nin yapisi.
                     _hedef_r = 8 * gecerli + _sl
                     _ok = (_hedef_r >= 0) & (_hedef_r < H_PAD)
                     plane[_hedef_r[_ok]] = _kel[_ok].astype('>u2')

@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "GERCEK PM22 stochastic maske kullanildi: core/masks16/STOCH{kanal}Mask_1x1.bin (512x512 uint16, 12-bit, komsu korelasyon -0.554 = blue-noise). Bayer 8x8 periyodik matris kaldirildi -> desen tekrari 512 satira cikti, kelime cesitliligi 32.560. NOT: alt-satir gruplama (y%8) hala 8 satir periyodu birakiyor; tam cozum icin PM22 Action16 cagrisi gerekli."
+  "notes": "YATAY CIZGI COZUMU: v1.4.0 satir-grubu carpanlari (0.30/0.75/0.76/0.77/1.00) yukseklikte 5 yogunluk bandi olusturup yatay cizgi yapiyordu. Bit _b artik yalnizca kendi satir grubunda (b%8) dolu olabiliyor, 5/6/7 bantlari bos -> bant kaymasi yok, 8 satir periyodu kirildi. Kelime cesitliligi 36.984."
 }
