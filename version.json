@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.6.1",
   "url": "https://github.com/msykim29/msy-rip/releases/latest/download/MSYRip-Setup.exe",
-  "notes": "PM22 dither.dll motoru uygulamaya gomuldu (B plani): 24 DLL resources/dither_native/ altinda, core/dither_native.py ctypes koprusu ile StochasticHalftone cagiriyor. DLL yuklenemezse eski dither aynen calisir (fallback). v1.5.0 tabanli (cizgisiz)."
+  "notes": "KUM COZUMU: native dither 16 alt-satirin hepsine AYNI 8-bit maskeyi basiyordu -> dikey tekrar + kum. Artik her alt-satir maskeyi farkli fazda kaydiriyor. Olcum: ton 0.491->0.491 (birebir), corr(y,y+8) 1.000->0.005, PRT 9.734 benzersiz kelime."
 }

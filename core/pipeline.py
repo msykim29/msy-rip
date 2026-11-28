@@ -686,12 +686,25 @@ def rip_isle(tif_yolu: str, daraltma: int, ayar: Ayarlar, log=None) -> str:
                                     _dn._CACHE[_key] = _nd
                                 _mask8 = _nd.uygula(_g3)
                                 if _mask8 is not None and _mask8.any():
-                                    # 8-bit nokta maskesi -> 16-bit kelime
-                                    _m = _mask8.astype(np.uint32)
-                                    _kel = np.zeros(_t.shape, dtype=np.uint32)
+                                    # 28/11 v1.6.1 — KUM COZUMU: onceki kod
+                                    # 16 alt-satirin HEPSINE AYNI 8-bit maskeyi
+                                    # basiyordu -> dikey tekrar + kum.
+                                    # Artik her alt-satir icin maskeyi KAYDIR
+                                    # (satir + bit bazli ofset) -> 16 farkli
+                                    # desen, tekrar yok, ton ayni kalir.
+                                    _m0 = _mask8
+                                    _Hm, _Wm = _m0.shape
+                                    _kel = np.zeros((_Hm, _Wm), dtype=np.uint32)
+                                    _yy16 = np.arange(_Hm, dtype=np.int64)[:, None]
+                                    _xx16 = np.arange(_Wm, dtype=np.int64)[None, :]
                                     for _b in range(16):
-                                        _bit = ((_m >> (_b % 8)) & 1)
-                                        _kel |= (_bit.astype(np.uint32) << _b)
+                                        # her alt-satir icin farkli faz (altin
+                                        # oranli kayma -> periyot kirilir)
+                                        _oy = int((_b * 71 + _sl_i * 37) % _Hm)
+                                        _ox = int((_b * 113 + _p_i * 53) % _Wm)
+                                        _s = np.roll(_m0, (_oy, _ox), axis=(0, 1))
+                                        _bit = _s.astype(np.uint32)
+                                        _kel |= (_bit << _b)
                                     _kel = _kel.astype(np.uint32)
                                     if log is not None and p == 0 and _sl == 0:
                                         log('PM22 native dither: %d/%d dolu'
